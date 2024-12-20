@@ -40,7 +40,7 @@ def extract_and_create_collage(video_path):
     duration = total_frames / fps
 
     # Extract 6 frames per second
-    frames_per_second = 6
+    frames_per_second = 10
     frame_interval = fps // frames_per_second
     total_frames_to_extract = int(duration * frames_per_second)
 
