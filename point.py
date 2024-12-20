@@ -23,11 +23,11 @@ def main():
     model = md.vl(model="moondream-2b-int8.mf")
 
     # Process the image (done once)
-    image = Image.open("single.png")
+    image = Image.open("images/collage_1.jpg")
     encoded = model.encode_image(image)
 
     # Create 10 identical queries
-    queries = ["smoking or cigarette"] * 50
+    queries = ["lighter or cigarette or smoke"] * 10
 
     # Start CPU monitoring
     monitor_cpu.running = True
