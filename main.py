@@ -1,6 +1,5 @@
 import cv2
-import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 import json
 import os
 from datetime import datetime
