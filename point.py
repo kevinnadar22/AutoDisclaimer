@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 
 
+PROMPT = "cigarette or vape"
+
 def is_point_in_frame(point, frame_coords):
     """Check if a point falls within a frame's boundaries"""
     x, y = point["x"], point["y"]
@@ -24,20 +26,18 @@ def process_single_image(model, image_path):
     try:
         image = Image.open(image_path)
         encoded = model.encode_image(image)
-        result = model.point(encoded, "lighter or cigarette or smoke or smoking")
+        result = model.point(encoded, PROMPT)
 
         # Extract coordinates from the result
-        # Example result: "There appears to be smoking at coordinates (123, 456)"
+        # Example result: [{"x": 123, "y": 456}, {"x": 789, "y": 101}]
         coordinates = []
-        if result and any(char.isdigit() for char in result):
-            # Parse the result to extract coordinates
-            # This is a simple example - adjust based on actual model output
+        if result:
             try:
-                # Extract numbers from the result
-                nums = [int(s) for s in result.split() if s.isdigit()]
-                if len(nums) >= 2:
-                    coordinates.append({"x": nums[0], "y": nums[1]})
-            except:
+                # Parse JSON result
+                points = json.loads(result)
+                if isinstance(points, list):
+                    coordinates.extend(points)
+            except json.JSONDecodeError:
                 pass
         return image_path, coordinates
     except Exception as e:
