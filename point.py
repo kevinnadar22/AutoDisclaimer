@@ -9,6 +9,7 @@ from functools import partial
 
 PROMPT = "cigarette or vape"
 
+
 def is_point_in_frame(point, frame_coords):
     """Check if a point falls within a frame's boundaries"""
     x, y = point["x"], point["y"]
@@ -27,18 +28,7 @@ def process_single_image(model, image_path):
         image = Image.open(image_path)
         encoded = model.encode_image(image)
         result = model.point(encoded, PROMPT)
-
-        # Extract coordinates from the result
-        # Example result: [{"x": 123, "y": 456}, {"x": 789, "y": 101}]
-        coordinates = []
-        if result:
-            try:
-                # Parse JSON result
-                points = json.loads(result)
-                if isinstance(points, list):
-                    coordinates.extend(points)
-            except json.JSONDecodeError:
-                pass
+        coordinates = result["points"]
         return image_path, coordinates
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
@@ -81,17 +71,20 @@ def process_folder(base_folder):
 
     all_smoking_points = []
     collage_files = [
-        f for f in os.listdir(base_folder)
+        f
+        for f in os.listdir(base_folder)
         if f.startswith("collage_") and f.endswith(".jpg")
     ]
 
     # Process images in parallel
     print("Processing images for smoking detection...")
     process_func = partial(process_single_image, model)
-    
+
     with ThreadPoolExecutor(max_workers=10) as executor:
         future_to_path = {
-            executor.submit(process_func, os.path.join(base_folder, collage_file)): collage_file
+            executor.submit(
+                process_func, os.path.join(base_folder, collage_file)
+            ): collage_file
             for collage_file in collage_files
         }
 
