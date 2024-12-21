@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
+import threading
 
 
 PROMPT = "cigarette or vape"
@@ -31,7 +32,6 @@ def process_single_image(model, image_path):
     return image_path, coordinates
 
 
-
 def update_json_with_smoking_frames(json_path, smoking_points):
     """Update JSON file marking frames that contain smoking points"""
     with open(json_path, "r") as f:
@@ -52,7 +52,6 @@ def update_json_with_smoking_frames(json_path, smoking_points):
     return True
 
 
-
 def process_folder(base_folder):
     """Process the latest folder and return list of smoking coordinates"""
     # Initialize model
@@ -64,35 +63,49 @@ def process_folder(base_folder):
         return []
 
     all_smoking_points = []
+    smoking_points_lock = threading.Lock()  # Lock for thread-safe list operations
+    
     collage_files = [
         f
         for f in os.listdir(base_folder)
         if f.startswith("collage_") and f.endswith(".jpg")
     ]
 
-    # Process images in parallel
-    print("Processing images for smoking detection...")
-    process_func = partial(process_single_image, model)
-
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_path = {
-            executor.submit(
-                process_func, os.path.join(base_folder, collage_file)
-            ): collage_file
-            for collage_file in collage_files
-        }
-
-        for future in as_completed(future_to_path):
-            collage_file = future_to_path[future]
-            try:
-                image_path, smoking_points = future.result()
-                if smoking_points:
+    def process_image_thread(collage_file):
+        try:
+            image_path = os.path.join(base_folder, collage_file)
+            _, smoking_points = process_single_image(model, image_path)
+            if smoking_points:
+                with smoking_points_lock:
                     all_smoking_points.extend(smoking_points)
-                    print(
-                        f"Detected smoking in {collage_file} at coordinates: {smoking_points}"
-                    )
-            except Exception as e:
-                print(f"Error processing {collage_file}: {e}")
+                print(
+                    f"Detected smoking in {collage_file} at coordinates: {smoking_points}"
+                )
+        except Exception as e:
+            print(f"Error processing {collage_file}: {e}")
+
+    # Create threads for parallel processing
+    threads = []
+    max_threads = min(10, len(collage_files))  # Limit max threads
+    
+    print("Processing images for smoking detection...")
+    
+    # Create and start threads
+    for collage_file in collage_files:
+        while len(threads) >= max_threads:
+            # Wait for some threads to complete before creating new ones
+            threads = [t for t in threads if t.is_alive()]
+        
+        thread = threading.Thread(
+            target=process_image_thread,
+            args=(collage_file,)
+        )
+        thread.start()
+        threads.append(thread)
+
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
 
     # Update JSON with smoking information
     if all_smoking_points:
