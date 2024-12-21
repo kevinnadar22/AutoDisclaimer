@@ -12,8 +12,7 @@ def process_single_image(image_path, prompt, model):
     image = Image.open(image_path)
     encoded = model.encode_image(image)
     result = model.detect(encoded, prompt)
-    return {"path": image_path, "coordinates": result}
-
+    return result
 
 def test_multiple_images(prompt="cigarette or vape"):
     """Test processing multiple images in parallel"""
@@ -46,13 +45,6 @@ def test_multiple_images(prompt="cigarette or vape"):
     end_time = time.time()
     final_cpu = psutil.cpu_percent()
     mem_after = psutil.Process().memory_info().rss / 1024 / 1024
-
-    # Print results
-    print("\n=== Results ===")
-    for result in results:
-        print(f"\nImage: {result['path']}")
-        print(f"Found {len(result['coordinates'])} points")
-        print(f"Points: {json.dumps(result['coordinates'], indent=2)}")
 
     print("\n=== Performance Metrics ===")
     print(f"Total processing time: {end_time - start_time:.2f} seconds")
