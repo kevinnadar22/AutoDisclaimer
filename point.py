@@ -24,39 +24,33 @@ def is_point_in_frame(point, frame_coords):
 
 def process_single_image(model, image_path):
     """Process a single image and return coordinates where smoking is detected"""
-    try:
-        image = Image.open(image_path)
-        encoded = model.encode_image(image)
-        result = model.point(encoded, PROMPT)
-        coordinates = result["points"]
-        return image_path, coordinates
-    except Exception as e:
-        print(f"Error processing {image_path}: {e}")
-        return image_path, []
+    image = Image.open(image_path)
+    encoded = model.encode_image(image)
+    result = model.point(encoded, PROMPT)
+    coordinates = result["points"]
+    return image_path, coordinates
+
 
 
 def update_json_with_smoking_frames(json_path, smoking_points):
     """Update JSON file marking frames that contain smoking points"""
-    try:
-        with open(json_path, "r") as f:
-            data = json.load(f)
+    with open(json_path, "r") as f:
+        data = json.load(f)
 
-        # For each collage and frame, check if any smoking points fall within it
-        for collage in data["collages"]:
-            for frame in collage["frames"]:
-                frame["smoking"] = any(
-                    is_point_in_frame(point, frame["coordinates"])
-                    for point in smoking_points
-                )
-        new_json_path = json_path.replace(".json", "_new.json")
-        # Write back the updated data
-        with open(new_json_path, "w") as f:
-            json.dump(data, f, indent=4)
+    # For each collage and frame, check if any smoking points fall within it
+    for collage in data["collages"]:
+        for frame in collage["frames"]:
+            frame["smoking"] = any(
+                is_point_in_frame(point, frame["coordinates"])
+                for point in smoking_points
+            )
+    new_json_path = json_path.replace(".json", "_new.json")
+    # Write back the updated data
+    with open(new_json_path, "w") as f:
+        json.dump(data, f, indent=4)
 
-        return True
-    except Exception as e:
-        print(f"Error updating JSON: {e}")
-        return False
+    return True
+
 
 
 def process_folder(base_folder):
