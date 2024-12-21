@@ -7,9 +7,8 @@ import os
 from tqdm import tqdm
 
 
-def process_single_image(image_path, prompt):
+def process_single_image(image_path, prompt, model):
     """Process a single image with the model"""
-    model = md.vl(model="moondream-0_5b-int8.mf")
     image = Image.open(image_path)
     encoded = model.encode_image(image)
     result = model.detect(encoded, prompt)
@@ -34,10 +33,13 @@ def test_multiple_images(prompt="cigarette or vape"):
     initial_cpu = psutil.cpu_percent()
     mem_before = psutil.Process().memory_info().rss / 1024 / 1024
 
+    # Initialize model once
+    model = md.vl(model="moondream-0_5b-int8.mf")
+
     # Process images sequentially
     results = []
     for img_path in tqdm(image_files, desc="Processing images", unit="image"):
-        result = process_single_image(img_path, prompt)
+        result = process_single_image(img_path, prompt, model)
         results.append(result)
 
     # Performance measurements
