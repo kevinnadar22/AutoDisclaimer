@@ -47,5 +47,5 @@ def test_single_image(image_path, prompt="cigarette or vape"):
 
 if __name__ == "__main__":
     # Replace with your image path
-    IMAGE_PATH = "images/latest_folder/collage_1.jpg"
+    IMAGE_PATH = "/workspaces/Auto-Disclaimer-Adder/images/20241220_233946/collage_1.jpg"
     test_single_image(IMAGE_PATH) 
