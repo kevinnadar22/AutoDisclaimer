@@ -29,6 +29,7 @@ def process_single_image(model, image_path):
     encoded = model.encode_image(image)
     result = model.point(encoded, PROMPT)
     coordinates = result["points"]
+    print(f"Found {len(coordinates)} smoking points in {image_path}")
     return image_path, coordinates
 
 
