@@ -3,13 +3,21 @@ from PIL import Image
 import json
 import os
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import partial
+import concurrent.futures
+import time
+import psutil
 import threading
 
+# Global variable for CPU measurements
+cpu_percentages = []
+
+def monitor_cpu():
+    """Function to monitor CPU usage"""
+    while monitor_cpu.running:
+        cpu_percentages.append(psutil.cpu_percent(interval=0.1))
+        time.sleep(0.1)
 
 PROMPT = "cigarette or vape"
-
 
 def is_point_in_frame(point, frame_coords):
     """Check if a point falls within a frame's boundaries"""
@@ -22,7 +30,6 @@ def is_point_in_frame(point, frame_coords):
         and top_left["y"] <= y <= bottom_right["y"]
     )
 
-
 def process_single_image(model, image_path):
     """Process a single image and return coordinates where smoking is detected"""
     image = Image.open(image_path)
@@ -31,7 +38,6 @@ def process_single_image(model, image_path):
     coordinates = result["points"]
     print(f"Found {len(coordinates)} smoking points in {image_path}")
     return image_path, coordinates
-
 
 def update_json_with_smoking_frames(json_path, smoking_points):
     """Update JSON file marking frames that contain smoking points"""
@@ -52,7 +58,6 @@ def update_json_with_smoking_frames(json_path, smoking_points):
 
     return True
 
-
 def process_folder(base_folder):
     """Process the latest folder and return list of smoking coordinates"""
     # Initialize model
@@ -63,51 +68,57 @@ def process_folder(base_folder):
         print(f"coordinates.json not found in {base_folder}")
         return []
 
-    all_smoking_points = []
-    smoking_points_lock = threading.Lock()  # Lock for thread-safe list operations
-    
     collage_files = [
         f
         for f in os.listdir(base_folder)
         if f.startswith("collage_") and f.endswith(".jpg")
     ]
 
-    def process_image_thread(collage_file):
-        try:
-            image_path = os.path.join(base_folder, collage_file)
-            _, smoking_points = process_single_image(model, image_path)
-            if smoking_points:
-                with smoking_points_lock:
+    all_smoking_points = []
+
+    # Start CPU monitoring
+    monitor_cpu.running = True
+    cpu_thread = threading.Thread(target=monitor_cpu)
+    cpu_thread.start()
+
+    # Start timing
+    start_time = time.time()
+
+    # Process images in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_file = {
+            executor.submit(process_single_image, model, os.path.join(base_folder, file)): file 
+            for file in collage_files
+        }
+
+        for future in concurrent.futures.as_completed(future_to_file):
+            file = future_to_file[future]
+            try:
+                _, smoking_points = future.result()
+                if smoking_points:
                     all_smoking_points.extend(smoking_points)
-                print(
-                    f"Detected smoking in {collage_file} at coordinates: {smoking_points}"
-                )
-        except Exception as e:
-            print(f"Error processing {collage_file}: {e}")
+                    print(f"Detected smoking in {file} at coordinates: {smoking_points}")
+            except Exception as e:
+                print(f"Error processing {file}: {e}")
 
-    # Create threads for parallel processing
-    threads = []
-    max_threads = min(10, len(collage_files))  # Limit max threads
-    
-    print("Processing images for smoking detection...")
-    
-    # Create and start threads
-    for collage_file in collage_files:
-        while len(threads) >= max_threads:
-            # Wait for some threads to complete before creating new ones
-            print(f"Waiting for threads to complete. Current threads: {len(threads)}")
-            threads = [t for t in threads if t.is_alive()]
-        
-        thread = threading.Thread(
-            target=process_image_thread,
-            args=(collage_file,)
-        )
-        thread.start()
-        threads.append(thread)
+    # End timing
+    end_time = time.time()
+    execution_time = end_time - start_time
 
-    # Wait for all threads to complete
-    for thread in threads:
-        thread.join()
+    # Stop CPU monitoring
+    monitor_cpu.running = False
+    cpu_thread.join()
+
+    # Calculate CPU statistics
+    avg_cpu = sum(cpu_percentages) / len(cpu_percentages) if cpu_percentages else 0
+    max_cpu = max(cpu_percentages) if cpu_percentages else 0
+
+    # Print performance results
+    print("\n=== Performance Results ===")
+    print(f"Total execution time: {execution_time:.2f} seconds")
+    print(f"Average time per image: {execution_time/len(collage_files):.2f} seconds")
+    print(f"Average CPU usage: {avg_cpu:.1f}%")
+    print(f"Peak CPU usage: {max_cpu:.1f}%")
 
     # Update JSON with smoking information
     if all_smoking_points:
@@ -115,7 +126,6 @@ def process_folder(base_folder):
         update_json_with_smoking_frames(json_path, all_smoking_points)
 
     return all_smoking_points
-
 
 def main():
     # Get the most recent folder
@@ -143,7 +153,6 @@ def main():
             json.dump(smoking_points, f, indent=2)
     else:
         print("\nNo smoking detected in any frames")
-
 
 if __name__ == "__main__":
     main()
