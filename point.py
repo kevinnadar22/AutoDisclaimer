@@ -95,6 +95,7 @@ def process_folder(base_folder):
     for collage_file in collage_files:
         while len(threads) >= max_threads:
             # Wait for some threads to complete before creating new ones
+            print(f"Waiting for threads to complete. Current threads: {len(threads)}")
             threads = [t for t in threads if t.is_alive()]
         
         thread = threading.Thread(
