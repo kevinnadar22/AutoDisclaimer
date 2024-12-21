@@ -5,6 +5,7 @@ import psutil
 import json
 from concurrent.futures import ProcessPoolExecutor
 import os
+from tqdm import tqdm
 
 
 def process_single_image(args):
@@ -38,7 +39,12 @@ def test_multiple_images(prompt="cigarette or vape"):
     # Process images in parallel with 10 workers
     args_list = [(img_path, prompt) for img_path in image_files]
     with ProcessPoolExecutor(max_workers=10) as executor:
-        results = list(executor.map(process_single_image, args_list))
+        results = list(tqdm(
+            executor.map(process_single_image, args_list),
+            total=len(args_list),
+            desc="Processing images",
+            unit="image"
+        ))
 
     # Performance measurements
     end_time = time.time()
