@@ -90,9 +90,6 @@ def process_image(model, image_path, frames_data, detect_only=False):
         # Find the frame in frames_data
         for frame in frames_data:
             if os.path.basename(image_path) == frame["path"]:
-                # Update smoking status
-                frame["smoking"] = smoking_detected
-
                 # Draw red rectangle around the entire image
                 draw.rectangle(
                     [(0, 0), (img_width, img_height)], outline="red", width=3
@@ -108,6 +105,12 @@ def process_image(model, image_path, frames_data, detect_only=False):
                         (10, img_height - 30), timestamp_text, fill="red", font=font
                     )
                 break
+
+    # Update frames_data regardless of detect_only mode
+    for frame in frames_data:
+        if os.path.basename(image_path) == frame["path"]:
+            frame["smoking"] = smoking_detected
+            break
 
     return frames_data, annotated_img, smoking_detected
 
