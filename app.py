@@ -8,6 +8,7 @@ import numpy as np
 from split import split_video_and_create_collages
 from process_smoking_detection import load_model, process_image
 from tqdm import tqdm
+import time
 
 
 def process_video_with_disclaimer(
@@ -25,10 +26,9 @@ def process_video_with_disclaimer(
             smoking_segments.append((frame["from_sec"], frame["to_sec"]))
     
     if not smoking_segments:
-        st.warning("No smoking detected in the video. No disclaimer needed.")
-        return
-    
-    st.info(f"Found {len(smoking_segments)} smoking segments")
+        st.warning("No smoking detected in the video. Creating output without disclaimers.")
+    else:
+        st.info(f"Found {len(smoking_segments)} smoking segments")
     
     # Open the video
     cap = cv2.VideoCapture(video_path)
@@ -50,6 +50,7 @@ def process_video_with_disclaimer(
     # Load and prepare disclaimer image if provided
     disclaimer_img = None
     if disclaimer_image_path:
+        st.text("Loading and preparing disclaimer image...")
         disclaimer_img = cv2.imread(disclaimer_image_path, cv2.IMREAD_UNCHANGED)
         if disclaimer_img is not None:
             # Resize disclaimer image to reasonable size (20% of video height)
@@ -64,6 +65,7 @@ def process_video_with_disclaimer(
                 disclaimer_img = disclaimer_img[:, :, :3]
             else:
                 alpha = np.ones((disclaimer_img.shape[0], disclaimer_img.shape[1]))
+            st.text("Disclaimer image prepared successfully")
     
     # Set up default text disclaimer
     disclaimer_text = "WARNING: This video contains smoking, which is harmful to health"
@@ -85,12 +87,16 @@ def process_video_with_disclaimer(
         img_x = 20  # 20 pixels from left
         img_y = height - disclaimer_img.shape[0] - 20  # 20 pixels from bottom
     
-    # Progress bar
+    # Progress bar and status
     progress_bar = st.progress(0)
     status_text = st.empty()
+    stats_text = st.empty()
+    time_remaining_text = st.empty()
     
     # Process the video
     frame_count = 0
+    smoking_frames = 0
+    start_time = time.time()
     
     while True:
         ret, frame = cap.read()
@@ -105,6 +111,7 @@ def process_video_with_disclaimer(
         for from_sec, to_sec in smoking_segments:
             if from_sec <= current_time <= to_sec:
                 show_disclaimer = True
+                smoking_frames += 1
                 break
         
         # Add disclaimer if needed
@@ -140,17 +147,27 @@ def process_video_with_disclaimer(
         # Write the frame
         out.write(frame)
         
-        # Update progress
+        # Update progress and stats
         frame_count += 1
         progress = frame_count / total_frames
         progress_bar.progress(progress)
-        status_text.text(f"Processing frame {frame_count}/{total_frames}")
+        
+        # Calculate time remaining
+        elapsed_time = time.time() - start_time
+        frames_remaining = total_frames - frame_count
+        if frame_count > 0:
+            fps_processing = frame_count / elapsed_time
+            time_remaining = frames_remaining / fps_processing
+            
+            status_text.text(f"Processing frame {frame_count}/{total_frames}")
+            stats_text.text(f"Smoking detected in {smoking_frames} frames ({smoking_frames/frame_count*100:.1f}%)")
+            time_remaining_text.text(f"Time remaining: {time_remaining:.1f}s (Processing at {fps_processing:.1f} FPS)")
     
     # Release resources
     cap.release()
     out.release()
     
-    st.success(f"Video with disclaimer saved to: {output_path}")
+    st.success(f"Video processing complete! {smoking_frames} frames contained smoking.")
     return output_path
 
 
@@ -182,59 +199,75 @@ def main():
             img.save(disclaimer_image_path, "PNG")
         
         if st.button("Process Video"):
-            with st.spinner("Processing video..."):
-                # Create output directories
-                output_dir = os.path.join(temp_dir, "output_collages")
-                os.makedirs(output_dir, exist_ok=True)
-                
-                # Step 1: Split video into frames
-                st.text("Step 1: Extracting frames...")
-                split_video_and_create_collages(
-                    video_path=video_path,
-                    output_dir=output_dir,
-                    num_frames=frames_per_second,
-                    collage_grid=None  # Don't create collages
-                )
-                
-                # Step 2: Load model and process frames
-                st.text("Step 2: Detecting smoking in frames...")
-                model = load_model()
-                
-                # Load frames info
-                with open(os.path.join(output_dir, "frames_info.json"), "r") as f:
-                    frames_data = json.load(f)
-                
-                # Process each frame
-                for frame in frames_data:
-                    image_path = os.path.join(output_dir, frame["path"])
-                    if os.path.exists(image_path):
-                        frames_data, _, _ = process_image(
-                            model, image_path, frames_data, detect_only=True
-                        )
-                
-                # Save updated frames info
-                with open(os.path.join(output_dir, "frames_info.json"), "w") as f:
-                    json.dump(frames_data, f, indent=2)
-                
-                # Step 3: Add disclaimer to video
-                st.text("Step 3: Adding disclaimer to video...")
-                output_path = os.path.join(temp_dir, "output_video.mp4")
-                final_video = process_video_with_disclaimer(
-                    video_path=video_path,
-                    frames_info_path=os.path.join(output_dir, "frames_info.json"),
-                    output_path=output_path,
-                    disclaimer_image_path=disclaimer_image_path
-                )
-                
-                # Provide download link
-                if os.path.exists(final_video):
-                    with open(final_video, "rb") as f:
-                        st.download_button(
-                            "Download Processed Video",
-                            f,
-                            file_name="video_with_disclaimer.mp4",
-                            mime="video/mp4"
-                        )
+            try:
+                with st.spinner("Processing video..."):
+                    # Create output directories
+                    output_dir = os.path.join(temp_dir, "output_collages")
+                    os.makedirs(output_dir, exist_ok=True)
+                    
+                    # Step 1: Split video into frames
+                    progress_text = st.empty()
+                    progress_text.text("Step 1/3: Extracting frames...")
+                    split_video_and_create_collages(
+                        video_path=video_path,
+                        output_dir=output_dir,
+                        num_frames=frames_per_second,
+                        collage_grid=None  # Don't create collages
+                    )
+                    
+                    # Step 2: Load model and process frames
+                    progress_text.text("Step 2/3: Loading AI model and detecting smoking...")
+                    model = load_model()
+                    
+                    # Load frames info
+                    with open(os.path.join(output_dir, "frames_info.json"), "r") as f:
+                        frames_data = json.load(f)
+                    
+                    # Process each frame with progress bar
+                    progress_bar = st.progress(0)
+                    frame_status = st.empty()
+                    total_frames = len(frames_data)
+                    
+                    for idx, frame in enumerate(frames_data):
+                        image_path = os.path.join(output_dir, frame["path"])
+                        if os.path.exists(image_path):
+                            frames_data, _, _ = process_image(
+                                model, image_path, frames_data, detect_only=True
+                            )
+                        progress = (idx + 1) / total_frames
+                        progress_bar.progress(progress)
+                        frame_status.text(f"Processing frame {idx + 1}/{total_frames}")
+                    
+                    # Save updated frames info
+                    with open(os.path.join(output_dir, "frames_info.json"), "w") as f:
+                        json.dump(frames_data, f, indent=2)
+                    
+                    # Step 3: Add disclaimer to video
+                    progress_text.text("Step 3/3: Adding disclaimers to video...")
+                    output_path = os.path.join(temp_dir, "output_video.mp4")
+                    final_video = process_video_with_disclaimer(
+                        video_path=video_path,
+                        frames_info_path=os.path.join(output_dir, "frames_info.json"),
+                        output_path=output_path,
+                        disclaimer_image_path=disclaimer_image_path
+                    )
+                    
+                    # Always create the output video, even if no smoking is detected
+                    if os.path.exists(output_path):
+                        with open(output_path, "rb") as f:
+                            st.download_button(
+                                "Download Processed Video",
+                                f,
+                                file_name="video_with_disclaimer.mp4",
+                                mime="video/mp4"
+                            )
+                    else:
+                        st.error("Error: Failed to create output video")
+                        
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
 
 if __name__ == "__main__":
