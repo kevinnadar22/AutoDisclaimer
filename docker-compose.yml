@@ -1,13 +1,16 @@
-version: '3'
+version: '3.8'
 
 services:
   app:
     build: .
+    runtime: nvidia
     ports:
       - "8501:8501"
     volumes:
       - .:/app
     environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - PYTHONUNBUFFERED=1
     deploy:
       resources:
@@ -15,4 +18,8 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu] 
+              capabilities: [gpu]
+    shm_size: '8gb'  # Increase shared memory size
+    ulimits:
+      memlock: -1  # Unlimited memory lock
+      stack: 67108864  # 64MB stack size 
