@@ -6,8 +6,6 @@ from PIL import Image, ImageDraw, ImageFont
 from transformers import AutoModelForCausalLM
 from huggingface_hub import login
 from tqdm import tqdm
-import threading
-import queue
 import time
 from functools import lru_cache
 
@@ -26,7 +24,7 @@ def load_model():
 
 
 # Cache image encoding to avoid re-encoding the same image
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=16)
 def encode_image_cached(image_path):
     """Cache image encoding to avoid redundant work"""
     # Convert path to string for caching
@@ -116,7 +114,7 @@ def process_image(model, image_path, frames_data, detect_only=False):
 
 
 def process_images_in_batches(
-    model, image_paths, input_dir, frames_data, detect_only=False, batch_size=8
+    model, image_paths, input_dir, frames_data, detect_only=False, batch_size=4
 ):
     """Process images in batches for better GPU utilization"""
     results = []
@@ -144,37 +142,6 @@ def process_images_in_batches(
     return results, smoking_count
 
 
-def worker_thread(model, task_queue, result_queue, input_dir, frames_data, detect_only):
-    """Worker thread function to process images"""
-    while True:
-        try:
-            # Get a batch of images from the queue
-            batch = task_queue.get(block=False)
-            if batch is None:  # Sentinel value to stop the thread
-                break
-
-            # Process the batch
-            for image_name in batch:
-                image_path = os.path.join(input_dir, image_name)
-                if os.path.exists(image_path):
-                    updated_frames, annotated_img, smoking_detected = process_image(
-                        model, image_path, frames_data.copy(), detect_only=detect_only
-                    )
-
-                    # Put the result in the result queue
-                    result_queue.put(
-                        (image_name, annotated_img, smoking_detected, updated_frames)
-                    )
-                else:
-                    print(f"Warning: Image file not found: {image_path}")
-
-            # Mark the task as done
-            task_queue.task_done()
-        except queue.Empty:
-            # No more tasks
-            break
-
-
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Process images for smoking detection")
@@ -196,14 +163,8 @@ def main():
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=8,
+        default=4,
         help="Number of images to process in each batch for better GPU utilization",
-    )
-    parser.add_argument(
-        "--threads",
-        type=int,
-        default=1,
-        help="Number of threads (use 1 for best GPU efficiency)",
     )
     parser.add_argument(
         "--debug-timing",
@@ -243,93 +204,18 @@ def main():
 
     # Process images
     total_start_time = time.time()
-    smoking_count = 0
+    results, smoking_count = process_images_in_batches(
+        model,
+        image_paths,
+        input_dir,
+        frames_data,
+        detect_only=args.detect_only,
+        batch_size=args.batch_size,
+    )
 
-    if args.threads > 1:
-        # Using threading instead of multiprocessing to avoid pickling issues
-        print(f"Processing with {args.threads} threads")
-
-        # Create task and result queues
-        task_queue = queue.Queue()
-        result_queue = queue.Queue()
-
-        # Split images into batches and add to task queue
-        for i in range(0, len(image_paths), args.batch_size):
-            batch = image_paths[i : i + args.batch_size]
-            task_queue.put(batch)
-
-        # Add sentinel values to stop threads
-        for _ in range(args.threads):
-            task_queue.put(None)
-
-        # Create and start worker threads
-        threads = []
-        for _ in range(args.threads):
-            thread = threading.Thread(
-                target=worker_thread,
-                args=(
-                    model,
-                    task_queue,
-                    result_queue,
-                    input_dir,
-                    frames_data,
-                    args.detect_only,
-                ),
-            )
-            thread.start()
-            threads.append(thread)
-
-        # Process results as they come in
-        processed_count = 0
-        with tqdm(total=len(image_paths)) as pbar:
-            while processed_count < len(image_paths):
-                try:
-                    # Get a result from the queue with a timeout
-                    image_name, annotated_img, smoking_detected, updated_frames = (
-                        result_queue.get(timeout=1)
-                    )
-
-                    # Update frames data with results
-                    for frame in updated_frames:
-                        for orig_frame in frames_data:
-                            if os.path.basename(frame["path"]) == os.path.basename(
-                                orig_frame["path"]
-                            ):
-                                orig_frame["smoking"] = frame["smoking"]
-
-                    # Save annotated image if available
-                    if smoking_detected:
-                        smoking_count += 1
-                    if annotated_img:
-                        output_path = os.path.join(output_dir, image_name)
-                        annotated_img.save(output_path)
-
-                    processed_count += 1
-                    pbar.update(1)
-                except queue.Empty:
-                    # Check if all threads are still alive
-                    if all(not thread.is_alive() for thread in threads):
-                        break
-
-        # Wait for all threads to finish
-        for thread in threads:
-            thread.join()
-    else:
-        # Process images in batches for better GPU utilization
-        print(f"Processing sequentially with batch size {args.batch_size}")
-        results, smoking_count = process_images_in_batches(
-            model,
-            image_paths,
-            input_dir,
-            frames_data,
-            detect_only=args.detect_only,
-            batch_size=args.batch_size,
-        )
-
-        # Save annotated images
-        for image_name, annotated_img, _ in tqdm(
-            results, desc="Saving annotated images"
-        ):
+    # Save annotated images
+    if not args.detect_only:
+        for image_name, annotated_img, _ in tqdm(results, desc="Saving annotated images"):
             if annotated_img:
                 output_path = os.path.join(output_dir, image_name)
                 annotated_img.save(output_path)
