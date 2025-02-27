@@ -56,7 +56,7 @@ def process_image(model, image_path, frames_data, detect_only=False):
     result = model.query(
         encoded,
         "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke? Answer strictly 'yes' or 'no'.",
-        max_tokens=10,
+        settings={"max_tokens": 10},
     )
     query_time = time.time() - query_start
 
