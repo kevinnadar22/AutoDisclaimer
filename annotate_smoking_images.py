@@ -1,7 +1,5 @@
 import json
 import os
-import cv2
-import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
