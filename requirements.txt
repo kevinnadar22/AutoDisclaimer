@@ -1,10 +1,15 @@
 moondream==0.0.6
 numpy==2.2.0
-opencv_python==4.10.0.84
+opencv-python==4.10.0.84
 Pillow
 psutil==5.9.8
 transformers
 torch
 huggingface_hub
 tqdm
+accelerate
+einops
+streamlit
+python-opencv
+opencv-python-headless
 argparse

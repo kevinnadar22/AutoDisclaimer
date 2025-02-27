@@ -10,26 +10,26 @@ import time
 def split_video_and_create_collages(
     video_path: str,
     output_dir: str,
-    frame_interval: int = 1,
-    collage_grid: Tuple[int, int] = (3, 3),
+    num_frames: int = 1,  # Number of frames per second to extract
+    collage_grid: Optional[Tuple[int, int]] = (3, 3),  # None for single images
     max_frames: Optional[int] = None,
     resize_frames: Optional[Tuple[int, int]] = None,
     num_workers: int = 4,
 ) -> List[str]:
     """
-    Split a video into frames and create collages of those frames.
+    Split a video into frames and optionally create collages of those frames.
 
     Args:
         video_path: Path to the input video file
-        output_dir: Directory to save the collages
-        frame_interval: Extract every nth frame
-        collage_grid: Tuple of (rows, cols) for the collage layout
+        output_dir: Directory to save the collages/frames
+        num_frames: Number of frames to extract per second
+        collage_grid: Tuple of (rows, cols) for collage layout, or None for single frames
         max_frames: Maximum number of frames to process (None for all)
-        resize_frames: Optional tuple (width, height) to resize frames before collage
+        resize_frames: Optional tuple (width, height) to resize frames
         num_workers: Number of worker threads for parallel processing
 
     Returns:
-        List of paths to the generated collage images
+        List of paths to the generated images
     """
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
@@ -47,6 +47,11 @@ def split_video_and_create_collages(
 
     print(f"Video info: {total_frames} frames, {fps} FPS, Resolution: {width}x{height}")
 
+    # Calculate frame interval based on fps and desired frames per second
+    frame_interval = int(fps / num_frames)
+    if frame_interval < 1:
+        frame_interval = 1
+
     # Calculate how many frames to process
     if max_frames is not None:
         frames_to_process = min(total_frames, max_frames)
@@ -57,6 +62,8 @@ def split_video_and_create_collages(
     frames = []
     frame_count = 0
     frame_info = []  # List to store information about each frame
+    timestamps = []  # List to store timestamp information for each extracted frame
+    extracted_frame_indices = []  # List to store the original frame indices
 
     while frame_count < frames_to_process:
         ret, frame = cap.read()
@@ -67,8 +74,13 @@ def split_video_and_create_collages(
             # Only resize if explicitly requested and preserve original dimensions for collage
             if resize_frames:
                 frame = cv2.resize(frame, resize_frames)
-            
+
             frames.append(frame)
+
+            # Calculate timestamp in seconds for this frame
+            timestamp_sec = frame_count / fps
+            timestamps.append(timestamp_sec)
+            extracted_frame_indices.append(frame_count)
 
         frame_count += 1
 
@@ -85,6 +97,55 @@ def split_video_and_create_collages(
         print("No frames were extracted from the video!")
         return []
 
+    # Calculate time segments for each frame
+    time_segments = []
+    for i, timestamp in enumerate(timestamps):
+        # For the last frame, estimate the end time based on frame interval
+        if i < len(timestamps) - 1:
+            end_time = timestamps[i + 1]
+        else:
+            # For the last frame, add the average duration of previous frames
+            if i > 0:
+                avg_duration = (timestamps[-1] - timestamps[0]) / (len(timestamps) - 1)
+                end_time = timestamp + avg_duration
+            else:
+                # If there's only one frame, estimate based on fps
+                end_time = timestamp + (1 / fps * frame_interval)
+
+        time_segments.append((timestamp, end_time))
+
+    if collage_grid is None:
+        # Save individual frames
+        output_paths = []
+        for i, frame in enumerate(frames):
+            output_path = os.path.join(output_dir, f"frame_{i:04d}.jpg")
+            cv2.imwrite(output_path, frame)
+            output_paths.append(output_path)
+
+            # Get timestamp information
+            from_sec, to_sec = time_segments[i]
+
+            # Store frame information
+            frame_data = {
+                "frame": i,
+                "original_frame_idx": extracted_frame_indices[i],
+                "path": f"frame_{i:04d}.jpg",
+                "from_sec": round(from_sec, 2),
+                "to_sec": round(to_sec, 2),
+                "smoking": False,
+            }
+            frame_info.append(frame_data)
+
+            if (i + 1) % 100 == 0:
+                print(f"Saved {i + 1}/{len(frames)} frames...")
+
+        # Save frame information to JSON
+        json_path = os.path.join(output_dir, "frames_info.json")
+        with open(json_path, "w") as f:
+            json.dump(frame_info, f, indent=2)
+
+        return output_paths
+
     # Calculate how many collages we can create with the frames we have
     frames_per_collage = collage_grid[0] * collage_grid[1]
     num_collages = (len(frames) + frames_per_collage - 1) // frames_per_collage
@@ -95,7 +156,7 @@ def split_video_and_create_collages(
 
     # Create a black frame for padding if needed
     black_frame = np.zeros_like(frames[0])
-    
+
     # Get frame dimensions for calculating positions
     frame_h, frame_w = frames[0].shape[:2]
     rows, cols = collage_grid
@@ -104,10 +165,10 @@ def split_video_and_create_collages(
     def process_collage(collage_idx):
         start_idx = collage_idx * frames_per_collage
         end_idx = min(start_idx + frames_per_collage, len(frames))
-        
+
         # Get frames for this collage
         collage_frames = frames[start_idx:end_idx]
-        
+
         # If we didn't get enough frames, pad with black frames
         if len(collage_frames) < frames_per_collage:
             collage_frames.extend(
@@ -125,24 +186,30 @@ def split_video_and_create_collages(
             collage[
                 r * frame_h : (r + 1) * frame_h, c * frame_w : (c + 1) * frame_w
             ] = frame
-            
+
             # Only store info for real frames (not padding)
             if start_idx + i < len(frames):
                 # Calculate the center position of this frame in the collage
                 center_x = c * frame_w + frame_w // 2
                 center_y = r * frame_h + frame_h // 2
-                
+
+                # Get timestamp information
+                from_sec, to_sec = time_segments[start_idx + i]
+
                 # Store frame information
                 frame_data = {
                     "frame": start_idx + i,
+                    "original_frame_idx": extracted_frame_indices[start_idx + i],
                     "path": f"collage_{collage_idx:04d}.jpg",
+                    "from_sec": round(from_sec, 2),
+                    "to_sec": round(to_sec, 2),
                     "x": center_x,
                     "y": center_y,
                     "collage_idx": collage_idx,
                     "position_in_collage": i,
                     "row": r,
                     "col": c,
-                    "smoking": False
+                    "smoking": False,
                 }
                 frame_info.append(frame_data)
 
@@ -177,16 +244,16 @@ def split_video_and_create_collages(
         if os.path.exists(file_path):
             print(f"Removing unnecessary collage: {file_path}")
             os.remove(file_path)
-    
+
     # Sort frame information by frame number
     frame_info.sort(key=lambda x: x["frame"])
     print(f"Sorting {len(frame_info)} frame entries by frame number...")
-    
+
     # Save frame information to JSON file
     json_path = os.path.join(output_dir, "frames_info.json")
-    with open(json_path, 'w') as f:
+    with open(json_path, "w") as f:
         json.dump(frame_info, f, indent=2)
-    
+
     print(f"Frame information saved to {json_path}")
 
     return collage_paths
@@ -197,12 +264,12 @@ if __name__ == "__main__":
     video_path = "video.mp4"  # Replace with your video path
     output_dir = "output_collages"
 
-    # Create 3x3 collages, taking every 2nd frame
+    # Create 3x3 collages, extracting 1 frame per second
     collage_paths = split_video_and_create_collages(
         video_path=video_path,
         output_dir=output_dir,
-        frame_interval=2,
-        collage_grid=(3, 3),
+        num_frames=1,  # Extract 1 frame per second
+        collage_grid=(3, 3),  # Set to None for individual frames
         resize_frames=None,  # Don't resize frames to preserve original dimensions
     )
 
