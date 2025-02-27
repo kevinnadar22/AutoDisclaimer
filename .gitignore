@@ -6,3 +6,5 @@ moondream-2b-int8.mf
 test.py
 outbound.json
 data.json
+output_collages/
+annotated_collages/
