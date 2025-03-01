@@ -128,7 +128,7 @@ def process_video_task(task_id):
         
         # Extract frames using split.py
         cmd = [
-            'python', 'split.py',
+            'python', '-m', 'utils.split',
             '--video', task['video_path'],
             '--output-dir', frames_dir,
             '--num-frames', str(task['frames_per_second']),
