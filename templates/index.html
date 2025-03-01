@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,15 +16,78 @@
             border: 2px dashed #cbd5e0;
             transition: all 0.3s ease;
         }
-        .drop-zone:hover, .drop-zone.active {
+
+        .drop-zone:hover,
+        .drop-zone.active {
             border-color: #4299e1;
             background-color: #ebf8ff;
         }
+
         .progress-bar {
             transition: width 0.3s ease;
         }
+
+        /* temporary */
+        /* Custom styles for Smoking Detection & Disclaimer Adder */
+
+        .drop-zone {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.active {
+            border-color: #4299e1;
+            background-color: #ebf8ff;
+        }
+
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+
+        /* Additional custom styles */
+        .app-header {
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .step-container {
+            transition: opacity 0.3s ease;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-badge.info {
+            background-color: #ebf8ff;
+            color: #3182ce;
+        }
+
+        .status-badge.success {
+            background-color: #f0fff4;
+            color: #38a169;
+        }
+
+        .status-badge.warning {
+            background-color: #fffaf0;
+            color: #dd6b20;
+        }
+
+        .status-badge.error {
+            background-color: #fff5f5;
+            color: #e53e3e;
+        }
+
+        /* temporary */
     </style>
 </head>
+
 <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-4xl">
         <header class="mb-8 text-center app-header py-4 rounded-lg">
@@ -35,16 +99,17 @@
             <!-- Step 1: Upload Video -->
             <div id="step1" class="bg-white rounded-lg shadow-md p-6 mb-6 step-container">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4">Step 1: Upload Video</h2>
-                
+
                 <div id="videoDropZone" class="drop-zone rounded-lg p-8 text-center cursor-pointer">
                     <div class="flex flex-col items-center">
                         <i class="fas fa-cloud-upload-alt text-4xl text-blue-500 mb-3"></i>
                         <p class="text-gray-700 mb-2">Drag and drop your video here or click to browse</p>
                         <p class="text-sm text-gray-500">Supports MP4, AVI, MOV, MKV</p>
                     </div>
-                    <input type="file" id="videoInput" class="hidden" accept="video/mp4,video/avi,video/quicktime,video/x-matroska">
+                    <input type="file" id="videoInput" class="hidden"
+                        accept="video/mp4,video/avi,video/quicktime,video/x-matroska">
                 </div>
-                
+
                 <div id="videoPreview" class="mt-4 hidden">
                     <div class="flex items-center">
                         <i class="fas fa-video text-green-500 mr-2"></i>
@@ -60,16 +125,17 @@
             <!-- Step 2: Configure Settings -->
             <div id="step2" class="bg-white rounded-lg shadow-md p-6 mb-6 opacity-50 step-container">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4">Step 2: Configure Settings</h2>
-                
+
                 <div class="mb-4">
                     <label for="framesPerSecond" class="block text-gray-700 mb-2">Frames per second to analyze</label>
                     <div class="flex items-center">
                         <input type="range" id="framesPerSecond" min="1" max="24" value="1" class="w-full mr-4">
                         <span id="framesValue" class="text-gray-700 font-medium">1</span>
                     </div>
-                    <p class="text-sm text-gray-500 mt-1">Higher values provide more accurate detection but increase processing time</p>
+                    <p class="text-sm text-gray-500 mt-1">Higher values provide more accurate detection but increase
+                        processing time</p>
                 </div>
-                
+
                 <div class="mt-6">
                     <label class="block text-gray-700 mb-2">Disclaimer Image (optional)</label>
                     <div id="disclaimerDropZone" class="drop-zone rounded-lg p-6 text-center cursor-pointer">
@@ -80,7 +146,7 @@
                         </div>
                         <input type="file" id="disclaimerInput" class="hidden" accept="image/png,image/jpeg,image/jpg">
                     </div>
-                    
+
                     <div id="disclaimerPreview" class="mt-4 hidden">
                         <div class="flex items-center">
                             <i class="fas fa-image text-green-500 mr-2"></i>
@@ -97,11 +163,12 @@
             <!-- Step 3: Process Video -->
             <div id="step3" class="bg-white rounded-lg shadow-md p-6 mb-6 opacity-50 step-container">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4">Step 3: Process Video</h2>
-                
-                <button id="processButton" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+
+                <button id="processButton"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     <i class="fas fa-play mr-2"></i>Process Video
                 </button>
-                
+
                 <div id="processingStatus" class="mt-6 hidden">
                     <div class="mb-4">
                         <div class="flex justify-between mb-1">
@@ -109,10 +176,11 @@
                             <span id="progressPercent" class="text-gray-700">0%</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div id="progressBar" class="progress-bar bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div>
+                            <div id="progressBar" class="progress-bar bg-blue-500 h-2.5 rounded-full" style="width: 0%">
+                            </div>
                         </div>
                     </div>
-                    
+
                     <div id="statusDetails" class="text-sm text-gray-600 mb-4">
                         <p id="statusText">Initializing...</p>
                     </div>
@@ -122,13 +190,13 @@
             <!-- Step 4: Results -->
             <div id="step4" class="bg-white rounded-lg shadow-md p-6 mb-6 hidden step-container">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4">Results</h2>
-                
+
                 <div id="processingComplete" class="mb-6">
                     <div class="flex items-center text-green-500 mb-4">
                         <i class="fas fa-check-circle text-2xl mr-2"></i>
                         <span class="text-lg font-medium">Processing Complete!</span>
                     </div>
-                    
+
                     <div class="bg-gray-50 rounded-lg p-4 mb-4">
                         <h3 class="font-medium text-gray-700 mb-2">Processing Summary</h3>
                         <ul class="space-y-1 text-gray-600">
@@ -138,11 +206,12 @@
                             <li id="fileSize">• Output file size: 0 MB</li>
                         </ul>
                     </div>
-                    
-                    <button id="downloadButton" class="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-4 rounded-lg mb-4 transition-colors">
+
+                    <button id="downloadButton"
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-4 rounded-lg mb-4 transition-colors">
                         <i class="fas fa-download mr-2"></i>Download Processed Video
                     </button>
-                    
+
                     <div id="resultVideoContainer" class="mt-4">
                         <h3 class="font-medium text-gray-700 mb-2">Video Preview</h3>
                         <video id="resultVideo" class="w-full rounded" controls></video>
@@ -166,5 +235,354 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <!-- temporary -->
+    <script>document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const videoDropZone = document.getElementById('videoDropZone');
+            const videoInput = document.getElementById('videoInput');
+            const videoPreview = document.getElementById('videoPreview');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const videoName = document.getElementById('videoName');
+            const removeVideo = document.getElementById('removeVideo');
+
+            const disclaimerDropZone = document.getElementById('disclaimerDropZone');
+            const disclaimerInput = document.getElementById('disclaimerInput');
+            const disclaimerPreview = document.getElementById('disclaimerPreview');
+            const disclaimerImage = document.getElementById('disclaimerImage');
+            const disclaimerName = document.getElementById('disclaimerName');
+            const removeDisclaimer = document.getElementById('removeDisclaimer');
+
+            const framesPerSecond = document.getElementById('framesPerSecond');
+            const framesValue = document.getElementById('framesValue');
+
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+            const step4 = document.getElementById('step4');
+
+            const processButton = document.getElementById('processButton');
+            const processingStatus = document.getElementById('processingStatus');
+            const progressBar = document.getElementById('progressBar');
+            const progressPercent = document.getElementById('progressPercent');
+            const currentStep = document.getElementById('currentStep');
+            const statusText = document.getElementById('statusText');
+
+            const errorAlert = document.getElementById('errorAlert');
+            const errorMessage = document.getElementById('errorMessage');
+            const closeError = document.getElementById('closeError');
+
+            const totalFrames = document.getElementById('totalFrames');
+            const smokingFrames = document.getElementById('smokingFrames');
+            const framesPerSecondResult = document.getElementById('framesPerSecondResult');
+            const fileSize = document.getElementById('fileSize');
+            const downloadButton = document.getElementById('downloadButton');
+            const resultVideo = document.getElementById('resultVideo');
+
+            // State variables
+            let videoFile = null;
+            let disclaimerFile = null;
+            let isProcessing = false;
+            let processingComplete = false;
+            let currentTaskId = null;
+            let statusCheckInterval = null;
+
+            // API endpoints
+            const API_PROCESS = '/api/process';
+            const API_STATUS = '/api/status/';
+            const API_DOWNLOAD = '/api/download/';
+
+            // Initialize UI state
+            updateUIState();
+
+            // Event Listeners
+
+            // Video Drop Zone
+            videoDropZone.addEventListener('click', () => videoInput.click());
+            videoDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                videoDropZone.classList.add('active');
+            });
+            videoDropZone.addEventListener('dragleave', () => {
+                videoDropZone.classList.remove('active');
+            });
+            videoDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                videoDropZone.classList.remove('active');
+
+                if (e.dataTransfer.files.length) {
+                    handleVideoFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            videoInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleVideoFile(e.target.files[0]);
+                }
+            });
+
+            removeVideo.addEventListener('click', () => {
+                videoFile = null;
+                videoPlayer.src = '';
+                videoPreview.classList.add('hidden');
+                updateUIState();
+            });
+
+            // Disclaimer Drop Zone
+            disclaimerDropZone.addEventListener('click', () => disclaimerInput.click());
+            disclaimerDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                disclaimerDropZone.classList.add('active');
+            });
+            disclaimerDropZone.addEventListener('dragleave', () => {
+                disclaimerDropZone.classList.remove('active');
+            });
+            disclaimerDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                disclaimerDropZone.classList.remove('active');
+
+                if (e.dataTransfer.files.length) {
+                    handleDisclaimerFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            disclaimerInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleDisclaimerFile(e.target.files[0]);
+                }
+            });
+
+            removeDisclaimer.addEventListener('click', () => {
+                disclaimerFile = null;
+                disclaimerImage.src = '';
+                disclaimerPreview.classList.add('hidden');
+                updateUIState();
+            });
+
+            // Frames per second slider
+            framesPerSecond.addEventListener('input', () => {
+                framesValue.textContent = framesPerSecond.value;
+            });
+
+            // Process button
+            processButton.addEventListener('click', () => {
+                if (videoFile && !isProcessing) {
+                    startProcessing();
+                }
+            });
+
+            // Close error button
+            closeError.addEventListener('click', () => {
+                errorAlert.classList.add('hidden');
+            });
+
+            // Download button
+            downloadButton.addEventListener('click', () => {
+                if (currentTaskId) {
+                    window.location.href = API_DOWNLOAD + currentTaskId;
+                }
+            });
+
+            // Functions
+
+            function handleVideoFile(file) {
+                // Check if file is a video
+                if (!file.type.startsWith('video/')) {
+                    showError('Please upload a valid video file.');
+                    return;
+                }
+
+                videoFile = file;
+                videoName.textContent = file.name;
+
+                // Create object URL for preview
+                const objectUrl = URL.createObjectURL(file);
+                videoPlayer.src = objectUrl;
+                videoPreview.classList.remove('hidden');
+
+                updateUIState();
+            }
+
+            function handleDisclaimerFile(file) {
+                // Check if file is an image
+                if (!file.type.startsWith('image/')) {
+                    showError('Please upload a valid image file.');
+                    return;
+                }
+
+                disclaimerFile = file;
+                disclaimerName.textContent = file.name;
+
+                // Create object URL for preview
+                const objectUrl = URL.createObjectURL(file);
+                disclaimerImage.src = objectUrl;
+                disclaimerPreview.classList.remove('hidden');
+
+                updateUIState();
+            }
+
+            function updateUIState() {
+                // Update step 2 (settings)
+                if (videoFile) {
+                    step2.classList.remove('opacity-50');
+                } else {
+                    step2.classList.add('opacity-50');
+                }
+
+                // Update step 3 (process)
+                if (videoFile && !isProcessing) {
+                    step3.classList.remove('opacity-50');
+                    processButton.disabled = false;
+                } else {
+                    step3.classList.add('opacity-50');
+                    processButton.disabled = true;
+                }
+
+                // Update frames per second result
+                framesPerSecondResult.textContent = `• Frames per second analyzed: ${framesPerSecond.value}`;
+            }
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorAlert.classList.remove('hidden');
+
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    errorAlert.classList.add('hidden');
+                }, 5000);
+            }
+
+            function startProcessing() {
+                isProcessing = true;
+                processingStatus.classList.remove('hidden');
+                updateUIState();
+
+                // Create FormData
+                const formData = new FormData();
+                formData.append('video', videoFile);
+                formData.append('frames_per_second', framesPerSecond.value);
+
+                if (disclaimerFile) {
+                    formData.append('disclaimer_image', disclaimerFile);
+                }
+
+                // Send request to API
+                fetch(API_PROCESS, {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to start processing');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.task_id) {
+                            currentTaskId = data.task_id;
+                            updateProgress('Initializing...', 0);
+
+                            // Start checking status
+                            statusCheckInterval = setInterval(checkStatus, 1000);
+                        } else {
+                            throw new Error('Invalid response from server');
+                        }
+                    })
+                    .catch(error => {
+                        isProcessing = false;
+                        updateUIState();
+                        showError('Error: ' + error.message);
+                    });
+            }
+
+            function checkStatus() {
+                if (!currentTaskId) {
+                    clearInterval(statusCheckInterval);
+                    return;
+                }
+
+                fetch(API_STATUS + currentTaskId)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to get status');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Update progress
+                        updateProgress(getStepText(data.status), data.progress, data.message);
+
+                        // Check if processing is complete
+                        if (data.status === 'completed') {
+                            completeProcessing(data);
+                        } else if (data.status === 'error') {
+                            showError('Processing error: ' + data.message);
+                            isProcessing = false;
+                            updateUIState();
+                            clearInterval(statusCheckInterval);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking status:', error);
+                    });
+            }
+
+            function getStepText(status) {
+                switch (status) {
+                    case 'initializing':
+                        return 'Initializing...';
+                    case 'extracting_frames':
+                        return 'Extracting frames...';
+                    case 'detecting_smoking':
+                        return 'Detecting smoking...';
+                    case 'adding_disclaimers':
+                        return 'Adding disclaimers to video...';
+                    case 'completed':
+                        return 'Processing complete!';
+                    case 'error':
+                        return 'Error';
+                    default:
+                        return 'Processing...';
+                }
+            }
+
+            function updateProgress(step, percent, statusMessage = '') {
+                currentStep.textContent = step;
+                progressBar.style.width = `${percent}%`;
+                progressPercent.textContent = `${Math.round(percent)}%`;
+
+                if (statusMessage) {
+                    statusText.textContent = statusMessage;
+                }
+            }
+
+            function completeProcessing(data) {
+                // Clear interval
+                clearInterval(statusCheckInterval);
+
+                isProcessing = false;
+                processingComplete = true;
+
+                // Hide processing status
+                processingStatus.classList.add('hidden');
+
+                // Show results
+                step4.classList.remove('hidden');
+
+                // Update results
+                totalFrames.textContent = `• Total frames analyzed: ${data.total_frames}`;
+                smokingFrames.textContent = `• Smoking detected in: ${data.smoking_frames} frames (${data.smoking_percentage}%)`;
+                framesPerSecondResult.textContent = `• Frames per second analyzed: ${data.frames_per_second}`;
+                fileSize.textContent = `• Output file size: ${data.file_size}`;
+
+                // Set video source
+                resultVideo.src = API_DOWNLOAD + currentTaskId;
+
+                // Update UI state
+                updateUIState();
+            }
+        }); </script>
+    <!-- temporary -->
 </body>
-</html> 
+
+</html>
