@@ -5,9 +5,11 @@ services:
     build: .
     runtime: nvidia
     ports:
-      - "8501:8501"
+      - "5000:5000"
     volumes:
       - .:/app
+      - ./uploads:/app/uploads
+      - ./downloads:/app/downloads
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility

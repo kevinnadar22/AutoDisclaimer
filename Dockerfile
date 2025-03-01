@@ -24,7 +24,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt \
-    && pip3 install --no-cache-dir accelerate einops streamlit
+    && pip3 install --no-cache-dir accelerate einops flask flask-cors
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -33,11 +33,14 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV PYTHONPATH=/app
 
+# Create necessary directories
+RUN mkdir -p /app/uploads /app/downloads /app/static /app/templates
+
 # Copy the application code
 COPY . .
 
-# Expose the port Streamlit runs on
-EXPOSE 8501
+# Expose the port Flask runs on
+EXPOSE 5000
 
-# Command to run the Streamlit app
-CMD ["streamlit", "run", "app.py", "--server.address", "0.0.0.0"] 
+# Command to run the Flask app
+CMD ["python3", "server.py"] 
