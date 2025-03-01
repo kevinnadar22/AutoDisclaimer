@@ -51,16 +51,20 @@ def process_image(model, image_path, frames_data, detect_only=False):
 
     # Run query for smoking detection
     query_start = time.time()
-    result = model.query(
-        encoded,
-        "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke? Answer strictly 'yes' or 'no'.",
-        settings={"max_tokens": 10},
+    # result = model.query(
+    #     encoded,
+    #     "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke? Answer strictly 'yes' or 'no'.",
+    #     settings={"max_tokens": 10},
+    # )
+    result = model.point(
+        img,
+        "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke?"
     )
     query_time = time.time() - query_start
 
     # Check if smoking was detected
-    smoking_detected = result["answer"].strip().lower() == "yes"
-
+    # smoking_detected = result["answer"].strip().lower() == "yes"
+    smoking_detected = len(result["points"]) > 0
     # Optional debug timing info
     if os.environ.get("DEBUG_TIMING"):
         print(f"Image: {os.path.basename(image_path)}")
@@ -215,7 +219,9 @@ def main():
 
     # Save annotated images
     if not args.detect_only:
-        for image_name, annotated_img, _ in tqdm(results, desc="Saving annotated images"):
+        for image_name, annotated_img, _ in tqdm(
+            results, desc="Saving annotated images"
+        ):
             if annotated_img:
                 output_path = os.path.join(output_dir, image_name)
                 annotated_img.save(output_path)
