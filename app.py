@@ -110,8 +110,6 @@ def process_video_with_disclaimer(
     # Progress bar and status
     progress_bar = st.progress(0)
     status_text = st.empty()
-    stats_text = st.empty()
-    time_remaining_text = st.empty()
 
     # Process the video
     frame_count = 0
@@ -214,19 +212,23 @@ def process_video_with_disclaimer(
         progress = frame_count / total_frames
         progress_bar.progress(progress)
         
-        # Calculate time remaining
+        # Calculate time remaining and processing speed
         elapsed_time = time.time() - start_time
         frames_remaining = total_frames - frame_count
         if frame_count > 0:
             fps_processing = frame_count / elapsed_time
             time_remaining = frames_remaining / fps_processing
             
-            status_text.text(f"Processing frame {frame_count}/{total_frames}")
-            stats_text.text(
-                f"Smoking detected in {smoking_frames} frames ({smoking_frames/frame_count*100:.1f}%)"
-            )
-            time_remaining_text.text(
-                f"Time remaining: {time_remaining:.1f}s (Processing at {fps_processing:.1f} FPS)"
+            # Format time remaining as MM:SS
+            mins_remaining = int(time_remaining // 60)
+            secs_remaining = int(time_remaining % 60)
+            
+            # Update status with frame count, smoking percentage, FPS, and ETA
+            status_text.text(
+                f"Processing: {frame_count}/{total_frames} frames | "
+                f"Smoking: {smoking_frames} frames ({smoking_frames/frame_count*100:.1f}%) | "
+                f"Speed: {fps_processing:.1f} FPS | "
+                f"ETA: {mins_remaining:02d}:{secs_remaining:02d}"
             )
         
         # Call progress callback if provided
@@ -268,12 +270,8 @@ def main():
         st.success(f"Video uploaded successfully: {video_filename}")
 
         # Parameters for frame extraction
-        st.subheader("Frame Extraction Settings")
-        col1, col2 = st.columns(2)
-        with col1:
-            frames_per_second = st.slider("Frames per second to analyze", 1, 10, 1)
-        with col2:
-            batch_size = st.slider("Batch size for processing", 1, 8, 4)
+        frames_per_second = st.slider("Frames per second to analyze", 1, 24, 1, 
+                                     help="Higher values provide more accurate detection but increase processing time")
 
         # File uploader for disclaimer image
         disclaimer_image = st.file_uploader(
@@ -289,7 +287,7 @@ def main():
 
         if st.button("Process Video"):
             try:
-                with st.spinner("Processing video..."):
+                with st.spinner("Initializing..."):
                     # Create output directories
                     output_dir = os.path.join(session_dir, "frames")
                     os.makedirs(output_dir, exist_ok=True)
@@ -334,12 +332,12 @@ def main():
 
                     # Process each frame with progress bar
                     progress_bar = st.progress(0)
-                    frame_status = st.empty()
-                    stats_status = st.empty()
+                    status_text = st.empty()
                     total_frames = len(frames_data)
                     smoking_count = 0
+                    start_time = time.time()
 
-                    # Process frames in batches for better performance
+                    # Process frames
                     for idx, frame in enumerate(frames_data):
                         image_path = os.path.join(output_dir, frame["path"])
                         if os.path.exists(image_path):
@@ -352,8 +350,24 @@ def main():
                         # Update progress
                         progress = (idx + 1) / total_frames
                         progress_bar.progress(progress)
-                        frame_status.text(f"Processing frame {idx + 1}/{total_frames}")
-                        stats_status.text(f"Detected smoking in {smoking_count} frames so far ({smoking_count/(idx+1)*100:.1f}%)")
+                        
+                        # Calculate ETA and FPS
+                        elapsed_time = time.time() - start_time
+                        if idx > 0:
+                            fps_processing = (idx + 1) / elapsed_time
+                            frames_remaining = total_frames - (idx + 1)
+                            time_remaining = frames_remaining / fps_processing
+                            
+                            # Format time remaining as MM:SS
+                            mins_remaining = int(time_remaining // 60)
+                            secs_remaining = int(time_remaining % 60)
+                            
+                            status_text.text(
+                                f"Analyzing: {idx + 1}/{total_frames} frames | "
+                                f"Smoking: {smoking_count} frames ({smoking_count/(idx+1)*100:.1f}%) | "
+                                f"Speed: {fps_processing:.1f} FPS | "
+                                f"ETA: {mins_remaining:02d}:{secs_remaining:02d}"
+                            )
 
                     # Save updated frames info
                     with open(frames_info_path, "w") as f:
@@ -375,8 +389,7 @@ def main():
                         # Get file size
                         file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
                         
-                        st.success(f"Processing complete! Video saved to: {output_path}")
-                        st.info(f"File size: {file_size_mb:.2f} MB")
+                        st.success(f"Processing complete!")
                         
                         # Create download button
                         with open(output_path, "rb") as f:
@@ -392,10 +405,10 @@ def main():
                         
                         # Show processing summary
                         st.subheader("Processing Summary")
-                        st.write(f"- Total frames analyzed: {total_frames}")
-                        st.write(f"- Smoking detected in: {smoking_count} frames ({smoking_count/total_frames*100:.1f}%)")
-                        st.write(f"- Frames per second analyzed: {frames_per_second}")
-                        st.write(f"- Output video saved to: {output_path}")
+                        st.write(f"• Total frames analyzed: {total_frames}")
+                        st.write(f"• Smoking detected in: {smoking_count} frames ({smoking_count/total_frames*100:.1f}%)")
+                        st.write(f"• Frames per second analyzed: {frames_per_second}")
+                        st.write(f"• Output file size: {file_size_mb:.2f} MB")
                     else:
                         st.error("Error: Failed to create output video")
 
