@@ -1,11 +1,4 @@
-from flask import (
-    Flask,
-    request,
-    jsonify,
-    send_file,
-    render_template,
-    send_from_directory,
-)
+from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 import os
 import uuid
@@ -162,7 +155,7 @@ def process_video_task(task_id):
         frame_info = split_video_and_create_collages(
             video_path=task["video_path"],
             output_dir=frames_dir,
-            fps=task["frames_per_second"],
+            num_frames=task["frames_per_second"],
             collage_grid=None,  # None for individual frames
             resize_frames=None,  # Let's use original frame sizes for better detection
         )
@@ -193,7 +186,8 @@ def process_video_task(task_id):
             is_smoking = process_image(
                 model=model,
                 image_path=frame_path,
-                confidence_threshold=0.5,  # Default threshold
+                frames_data=frames_data,
+                detect_only=True,
             )
 
             if is_smoking:
