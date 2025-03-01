@@ -11,7 +11,7 @@ import shutil
 # Import modules from the utils package
 from utils.split import split_video_and_create_collages
 from utils.process_smoking_detection import load_model, process_image
-from utils.add_smoking_disclaimer import process_video_with_disclaimer
+from utils.add_smoking_disclaimer import add_disclaimer_to_video
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -208,7 +208,7 @@ def process_video_task(task_id):
                 task['progress'] = 70 + progress * 30
             
             # Process the video
-            process_video_with_disclaimer(
+            add_disclaimer_to_video(
                 task['video_path'],
                 frames_info_path,
                 task['output_path'],
