@@ -1,99 +1,85 @@
-# Auto Disclaimer Adder
+# Automatic Smoking Disclaimer Adder
 
-This repository contains tools for automatically detecting smoking in videos and adding appropriate disclaimers.
+This application automatically detects smoking scenes in videos and adds appropriate disclaimers. It uses a deep learning model to identify smoking content and overlays a warning message during those specific timestamps.
 
-## Installation
+## Features
 
+- **Smoking Detection**: Uses the Moondream2 vision-language model to detect smoking in video frames
+- **Automatic Disclaimer**: Adds a professional-looking disclaimer during smoking scenes only
+- **User-Friendly Interface**: Streamlit web UI for easy video processing
+- **GPU Acceleration**: Optimized for NVIDIA GPUs for faster processing
+- **Customization Options**: Adjust batch size, image dimensions, and disclaimer appearance
+
+## Quick Start
+
+The easiest way to run the application is using the provided setup script:
+
+```bash
+# Make the script executable
+chmod +x setup_and_run.sh
+
+# Run the setup script
+./setup_and_run.sh
+```
+
+This will:
+1. Check for Docker and NVIDIA GPU availability
+2. Build the Docker image with all dependencies
+3. Start the Streamlit web application
+4. Provide usage instructions
+
+Once running, open your browser and go to: http://localhost:8501
+
+## Manual Setup
+
+If you prefer to set up manually:
+
+### Using Docker (recommended)
+
+```bash
+# Build the Docker image
+docker-compose build
+
+# Run the application
+docker-compose up
+```
+
+### Without Docker
+
+1. Install Python 3.9 and dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
+2. Run the Streamlit app:
+```bash
+streamlit run app.py
+```
+
 ## Usage
 
-The workflow consists of three main steps:
+1. **Upload Video**: Select a video file to process
+2. **Configure Settings**: Adjust frame extraction rate and batch size if needed
+3. **Process Video**: Click the "Process Video" button
+4. **Download Result**: Once processing is complete, download the video with disclaimers
 
-1. Split the video into frames
-2. Detect smoking in the frames
-3. Add disclaimers to the original video
+## Components
 
-### 1. Split Video into Frames
+- `process_smoking_detection.py`: Handles smoking detection using the Moondream2 model
+- `add_smoking_disclaimer.py`: Adds disclaimers to videos at specific timestamps
+- `app.py`: Streamlit web interface
+- `Dockerfile` and `docker-compose.yml`: Container configuration
 
-Use the `split.py` script to extract frames from a video:
+## Performance Tips
 
-```bash
-python split.py
-```
-
-This will extract frames from the video and save them in the `output_collages` directory along with a `frames_info.json` file containing metadata.
-
-### 2. Detect Smoking in Frames
-
-Use the `process_smoking_detection.py` script to detect smoking in the extracted frames:
-
-```bash
-python process_smoking_detection.py --input-dir output_collages --output-dir annotated_images
-```
-
-This will process each frame, detect smoking, and update the `frames_info.json` file with smoking detection results.
-
-For better performance, you can adjust the batch size and image size:
-
-```bash
-python process_smoking_detection.py --batch-size 4 --max-image-size 800
-```
-
-### 3. Add Smoking Disclaimers to Video
-
-Use the new `add_smoking_disclaimer.py` script to add disclaimers to the original video based on the smoking detection results:
-
-```bash
-python add_smoking_disclaimer.py --video video.mp4 --frames-info output_collages/frames_info.json --output video_with_disclaimer.mp4
-```
-
-This will add a disclaimer overlay whenever smoking is detected in the video.
-
-#### Customizing the Disclaimer
-
-You can customize the disclaimer appearance and behavior with various options:
-
-```bash
-python add_smoking_disclaimer.py --video video.mp4 \
-    --disclaimer-text "WARNING: Smoking is injurious to health" \
-    --disclaimer-duration 7.0 \
-    --disclaimer-position top \
-    --disclaimer-bg-opacity 0.8 \
-    --disclaimer-font-scale 1.2
-```
-
-Available options:
-
-- `--disclaimer-text`: Text to display as disclaimer
-- `--disclaimer-duration`: How long to show the disclaimer after smoking is detected (seconds)
-- `--disclaimer-position`: Position of disclaimer (top, bottom, center)
-- `--disclaimer-bg-opacity`: Background opacity (0-1)
-- `--disclaimer-font-scale`: Font scale for disclaimer text
-- `--no-timestamp`: Don't show timestamp of smoking detection
-
-## Advanced Options
-
-### Smoking Detection Options
-
-The `process_smoking_detection.py` script supports several options for optimizing performance:
-
-- `--batch-size`: Number of images to process in each batch (default: 4)
-- `--max-image-size`: Maximum image dimension to resize to before processing (default: 1024)
-- `--device`: Device to run the model on (cuda, cpu)
-- `--aggressive-gc`: Aggressively collect garbage to reduce memory usage
-- `--debug-timing`: Print detailed timing information
-
-### Video Splitting Options
-
-The `split.py` script supports several options for customizing frame extraction:
-
-- `--num-frames`: Number of frames to extract per second
-- `--resize-frames`: Resize frames to specified dimensions
-- `--max-frames`: Maximum number of frames to process
+- **GPU Memory**: Reduce batch size if you encounter CUDA out of memory errors
+- **Processing Speed**: Larger batch sizes generally improve performance on GPUs with sufficient memory
+- **Image Size**: Use the max image size option to reduce memory usage for high-resolution videos
 
 ## License
 
-[MIT License](LICENSE) 
+[MIT License](LICENSE)
+
+## Acknowledgments
+
+- Uses the [Moondream2](https://huggingface.co/vikhyatk/moondream2) model for smoking detection 
