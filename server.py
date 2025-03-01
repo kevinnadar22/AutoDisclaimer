@@ -13,14 +13,12 @@ import json
 import time
 import threading
 from werkzeug.utils import secure_filename
-import subprocess
 import shutil
-
-# Import modules from the utils package
-from utils.split import split_video_and_create_collages
-from utils.process_smoking_detection import load_model, process_image
-from utils.add_smoking_disclaimer import (
-    add_disclaimer_to_video as process_video_with_disclaimer,
+from utils import (
+    split_video_and_create_collages,
+    load_model,
+    process_image,
+    process_video_with_disclaimer,
 )
 
 # Get absolute paths for static and templates folders
@@ -31,6 +29,9 @@ templates_folder = os.path.join(current_dir, "templates")
 # Create Flask app with explicit static and template folders
 app = Flask(__name__, static_folder=static_folder, template_folder=templates_folder)
 CORS(app)  # Enable CORS for all routes
+
+# Set maximum content length to 200MB (adjust as needed)
+app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB in bytes
 
 # Print debug information about static folder
 print(f"Static folder path: {app.static_folder}")
@@ -69,32 +70,6 @@ def allowed_image_file(filename):
 @app.route("/")
 def index():
     return render_template("index.html")
-
-
-@app.route("/test")
-def test():
-    return render_template("test.html")
-
-
-# Direct routes for static files (as a fallback)
-@app.route("/static/<path:filename>")
-def custom_static(filename):
-    return send_from_directory(app.static_folder, filename)
-
-
-@app.route("/static/js/<path:filename>")
-def serve_js(filename):
-    return send_from_directory(os.path.join(app.static_folder, "js"), filename)
-
-
-@app.route("/static/css/<path:filename>")
-def serve_css(filename):
-    return send_from_directory(os.path.join(app.static_folder, "css"), filename)
-
-
-@app.route("/static/img/<path:filename>")
-def serve_img(filename):
-    return send_from_directory(os.path.join(app.static_folder, "img"), filename)
 
 
 @app.route("/api/process", methods=["POST"])
@@ -170,6 +145,9 @@ def process_video_task(task_id):
     task = processing_tasks[task_id]
 
     try:
+        # Load the smoking detection model
+        model = load_model()
+
         # Update status to extracting frames
         task["status"] = "extracting_frames"
         task["progress"] = 5
@@ -179,24 +157,15 @@ def process_video_task(task_id):
         frames_dir = os.path.join(DOWNLOAD_FOLDER, task_id, "frames")
         os.makedirs(frames_dir, exist_ok=True)
 
-        # Extract frames using split.py
-        cmd = [
-            "python",
-            "-m",
-            "utils.split",
-            "--video",
-            task["video_path"],
-            "--output-dir",
-            frames_dir,
-            "--num-frames",
-            str(task["frames_per_second"]),
-            "--resize",
-            "640x360",
-        ]
-
-        # Run the command and simulate progress
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        process.wait()
+        # Extract frames using split_video_and_create_collages function
+        # Note: split_video_and_create_collages(video_path, output_dir, fps=1, collage_grid=(4, 4), resize_frames=None)
+        frame_info = split_video_and_create_collages(
+            video_path=task["video_path"],
+            output_dir=frames_dir,
+            fps=task["frames_per_second"],
+            collage_grid=None,  # None for individual frames
+            resize_frames=None,  # Let's use original frame sizes for better detection
+        )
 
         # Check if frames were extracted successfully
         frames_info_path = os.path.join(frames_dir, "frames_info.json")
@@ -215,16 +184,21 @@ def process_video_task(task_id):
         task["status"] = "detecting_smoking"
         task["message"] = "Detecting smoking in frames..."
 
-        # Simulate smoking detection (in a real implementation, you would call process_smoking_detection.py)
-        for i in range(task["total_frames"]):
-            # Simulate processing delay
-            time.sleep(0.05)
+        # Process each frame for smoking detection
+        smoking_frames = []
+        for i, frame_info in enumerate(frames_data):
+            frame_path = os.path.join(frames_dir, frame_info["filename"])
 
-            # Randomly determine if smoking is detected (for simulation)
-            is_smoking = i % 5 == 0  # Simulate 20% of frames with smoking
+            # Note: process_image(model, image_path, confidence_threshold=0.5)
+            is_smoking = process_image(
+                model=model,
+                image_path=frame_path,
+                confidence_threshold=0.5,  # Default threshold
+            )
 
             if is_smoking:
                 task["smoking_frames"] += 1
+                smoking_frames.append(frame_info["timestamp"])
 
             task["frames_processed"] = i + 1
             task["progress"] = 30 + (i / task["total_frames"]) * 40
@@ -248,29 +222,20 @@ def process_video_task(task_id):
         task["progress"] = 70
         task["message"] = "Adding disclaimers to video..."
 
-        # Simulate adding disclaimers (in a real implementation, you would call process_video_with_disclaimer)
-        for i in range(100):
-            # Simulate processing delay
-            time.sleep(0.1)
-
-            task["progress"] = 70 + (i / 100) * 30
-
-            # Calculate processing speed and ETA
-            elapsed_time = time.time() - task["start_time"]
-            fps = i / elapsed_time if elapsed_time > 0 else 0
-            frames_remaining = 100 - i
-            time_remaining = frames_remaining / fps if fps > 0 else 0
-
-            task["message"] = (
-                f"Processing: {i}/{100} frames | "
-                f"Smoking: {task['smoking_frames']} frames ({task['smoking_frames']/task['total_frames']*100:.1f}%) | "
-                f"Speed: {fps:.1f} FPS | "
-                f"ETA: {int(time_remaining//60):02d}:{int(time_remaining%60):02d}"
-            )
-
-        # For demo purposes, copy the original video as the processed output
-        # In a real implementation, you would generate a new video with disclaimers
-        shutil.copy(task["video_path"], task["output_path"])
+        # Note: process_video_with_disclaimer(input_video, output_video, smoking_timestamps, disclaimer_image=None, disclaimer_text=None)
+        process_video_with_disclaimer(
+            input_video=task["video_path"],
+            output_video=task["output_path"],
+            smoking_timestamps=smoking_frames,
+            disclaimer_image=(
+                task["disclaimer_path"] if task["disclaimer_path"] else None
+            ),
+            disclaimer_text=(
+                "Warning: This video contains scenes of smoking"
+                if not task["disclaimer_path"]
+                else None
+            ),
+        )
 
         # Update status to completed
         task["status"] = "completed"
@@ -287,6 +252,10 @@ def process_video_task(task_id):
         task["progress"] = 0
         task["message"] = f"Error: {str(e)}"
         print(f"Error processing video: {str(e)}")
+
+        # Clean up any temporary files
+        if os.path.exists(frames_dir):
+            shutil.rmtree(frames_dir)
 
 
 @app.route("/api/status/<task_id>", methods=["GET"])
