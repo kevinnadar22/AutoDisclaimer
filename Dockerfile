@@ -23,8 +23,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt \
-    && pip3 install --no-cache-dir accelerate einops flask flask-cors
+RUN pip3 install --no-cache-dir -r requirements.txt 
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
