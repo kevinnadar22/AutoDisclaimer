@@ -40,15 +40,21 @@ def process_video_file(
         frames_dir = os.path.join(temp_dir, "frames")
         os.makedirs(frames_dir, exist_ok=True)
 
-        # Save video file
+        # Save video file - handle both string paths and file objects
         video_path = os.path.join(temp_dir, "input_video.mp4")
-        shutil.copy2(video_file.name, video_path)
+        if isinstance(video_file, str):
+            shutil.copy2(video_file, video_path)
+        else:
+            shutil.copy2(video_file.name, video_path)
 
         # Save disclaimer image if provided
         disclaimer_path = None
         if disclaimer_image is not None:
             disclaimer_path = os.path.join(temp_dir, "disclaimer.png")
-            shutil.copy2(disclaimer_image.name, disclaimer_path)
+            if isinstance(disclaimer_image, str):
+                shutil.copy2(disclaimer_image, disclaimer_path)
+            else:
+                shutil.copy2(disclaimer_image.name, disclaimer_path)
 
         # Initialize model
         model_load_start = time.time()
