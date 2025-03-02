@@ -147,3 +147,5 @@ config.env
 text.txt
 uploads/
 downloads/
+annotated_images/
+video_with_disclaimer.mp4
