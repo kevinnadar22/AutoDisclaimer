@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, render_template, Blueprint
+from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 import os
 import uuid
@@ -7,7 +7,6 @@ import time
 import threading
 from werkzeug.utils import secure_filename
 import shutil
-from werkzeug.middleware.proxy_fix import ProxyFix
 from utils import (
     split_video_and_create_collages,
     load_model,
@@ -23,26 +22,12 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 static_folder = os.path.join(current_dir, "static")
 templates_folder = os.path.join(current_dir, "templates")
 
-# URL prefix configuration (e.g., /proxy/5000)
-URL_PREFIX = os.getenv("URL_PREFIX", "").rstrip("/")  # Remove trailing slash if present
-
 # Create Flask app with explicit static and template folders
-app = Flask(__name__, 
-           static_folder=static_folder, 
-           template_folder=templates_folder,
-           static_url_path=f'{URL_PREFIX}/static' if URL_PREFIX else '/static')
+app = Flask(__name__, static_folder=static_folder, template_folder=templates_folder)
+CORS(app)  # Enable CORS for all routes
 
-# Create Blueprint for API routes
-api = Blueprint('api', __name__, url_prefix=f'{URL_PREFIX}/api' if URL_PREFIX else '/api')
-
-# Fix for running behind a proxy
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
-# Enable CORS for all routes with support for credentials
-CORS(app, supports_credentials=True)
-
-# Set maximum content length to 1000MB (1GB)
-app.config["MAX_CONTENT_LENGTH"] = 1000 * 1024 * 1024  # 1GB in bytes
+# Set maximum content length to 200MB (adjust as needed)
+app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB in bytes
 
 # Print debug information about static folder
 print(f"Static folder path: {app.static_folder}")
@@ -63,12 +48,6 @@ os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 # Store processing status
 processing_tasks = {}
 
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    return jsonify({
-        "error": "File too large",
-        "message": "The file you're trying to upload is too large. Maximum allowed size is 1GB."
-    }), 413
 
 def allowed_video_file(filename):
     return (
@@ -76,18 +55,20 @@ def allowed_video_file(filename):
         and filename.rsplit(".", 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
     )
 
+
 def allowed_image_file(filename):
     return (
         "." in filename
         and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
     )
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# Move API routes to Blueprint
-@api.route("/process", methods=["POST"])
+
+@app.route("/api/process", methods=["POST"])
 def process_video():
     # Check if video file is present
     if "video" not in request.files:
@@ -154,7 +135,127 @@ def process_video():
         {"task_id": task_id, "status": "started", "message": "Video processing started"}
     )
 
-@api.route("/status/<task_id>", methods=["GET"])
+
+def process_video_task(task_id):
+    """Process the video in the background"""
+    task = processing_tasks[task_id]
+
+    try:
+        # Load the smoking detection model
+        model = load_model()
+
+        # Update status to extracting frames
+        task["status"] = "extracting_frames"
+        task["progress"] = 5
+        task["message"] = "Extracting frames from video..."
+
+        # Create frames directory
+        frames_dir = os.path.join(DOWNLOAD_FOLDER, task_id, "frames")
+        os.makedirs(frames_dir, exist_ok=True)
+
+        # Extract frames using split_video_and_create_collages function
+        # Note: split_video_and_create_collages(video_path, output_dir, fps=1, collage_grid=(4, 4), resize_frames=None)
+        frame_info = split_video_and_create_collages(
+            video_path=task["video_path"],
+            output_dir=frames_dir,
+            num_frames=task["frames_per_second"],
+            collage_grid=None,  # None for individual frames
+            resize_frames=None,  # Let's use original frame sizes for better detection
+        )
+
+        # Check if frames were extracted successfully
+        frames_info_path = os.path.join(frames_dir, "frames_info.json")
+        if not os.path.exists(frames_info_path):
+            raise Exception("Failed to extract frames from video")
+
+        # Load frames info
+        with open(frames_info_path, "r") as f:
+            frames_data = json.load(f)
+
+        task["total_frames"] = len(frames_data)
+        task["progress"] = 30
+        task["message"] = f'Extracted {task["total_frames"]} frames'
+
+        # Update status to detecting smoking
+        task["status"] = "detecting_smoking"
+        task["message"] = "Detecting smoking in frames..."
+
+        # Process each frame for smoking detection
+        smoking_frames = []
+        for i, frame_info in enumerate(frames_data):
+            frame_path = os.path.join(frames_dir, frame_info["filename"])
+
+            # Note: process_image(model, image_path, confidence_threshold=0.5)
+            is_smoking = process_image(
+                model=model,
+                image_path=frame_path,
+                frames_data=frames_data,
+                detect_only=True,
+            )
+
+            if is_smoking:
+                task["smoking_frames"] += 1
+                smoking_frames.append(frame_info["timestamp"])
+
+            task["frames_processed"] = i + 1
+            task["progress"] = 30 + (i / task["total_frames"]) * 40
+
+            # Calculate processing speed and ETA
+            elapsed_time = time.time() - task["start_time"]
+            if i > 0:
+                fps = task["frames_processed"] / elapsed_time
+                frames_remaining = task["total_frames"] - task["frames_processed"]
+                time_remaining = frames_remaining / fps if fps > 0 else 0
+
+                task["message"] = (
+                    f"Analyzing: {task['frames_processed']}/{task['total_frames']} frames | "
+                    f"Smoking: {task['smoking_frames']} frames ({task['smoking_frames']/task['frames_processed']*100:.1f}%) | "
+                    f"Speed: {fps:.1f} FPS | "
+                    f"ETA: {int(time_remaining//60):02d}:{int(time_remaining%60):02d}"
+                )
+
+        # Update status to adding disclaimers
+        task["status"] = "adding_disclaimers"
+        task["progress"] = 70
+        task["message"] = "Adding disclaimers to video..."
+
+        # Note: process_video_with_disclaimer(input_video, output_video, smoking_timestamps, disclaimer_image=None, disclaimer_text=None)
+        process_video_with_disclaimer(
+            input_video=task["video_path"],
+            output_video=task["output_path"],
+            smoking_timestamps=smoking_frames,
+            disclaimer_image=(
+                task["disclaimer_path"] if task["disclaimer_path"] else None
+            ),
+            disclaimer_text=(
+                "Warning: This video contains scenes of smoking"
+                if not task["disclaimer_path"]
+                else None
+            ),
+        )
+
+        # Update status to completed
+        task["status"] = "completed"
+        task["progress"] = 100
+        task["message"] = "Processing completed successfully"
+
+        # Calculate file size
+        file_size_mb = os.path.getsize(task["output_path"]) / (1024 * 1024)
+        task["file_size"] = f"{file_size_mb:.2f} MB"
+
+    except Exception as e:
+        # Update status to error
+        task["status"] = "error"
+        task["progress"] = 0
+        task["message"] = f"Error: {str(e)}"
+        print(f"Error processing video: {str(e)}")
+
+        # Clean up any temporary files
+        if os.path.exists(frames_dir):
+            shutil.rmtree(frames_dir)
+
+
+@app.route("/api/status/<task_id>", methods=["GET"])
 def get_status(task_id):
     """Get the status of a processing task"""
     if task_id not in processing_tasks:
@@ -181,7 +282,8 @@ def get_status(task_id):
 
     return jsonify(response)
 
-@api.route("/download/<task_id>", methods=["GET"])
+
+@app.route("/api/download/<task_id>", methods=["GET"])
 def download_video(task_id):
     """Download the processed video"""
     if task_id not in processing_tasks:
@@ -201,11 +303,6 @@ def download_video(task_id):
         download_name=os.path.basename(task["output_path"]),
     )
 
-# Register the API blueprint
-app.register_blueprint(api)
 
 if __name__ == "__main__":
-    print(f"Server running with URL prefix: {URL_PREFIX}")
-    print(f"API endpoints will be available at: {URL_PREFIX}/api/*")
-    print(f"Static files will be served from: {URL_PREFIX}/static/*")
-    app.run(debug=True, host="0.0.0.0", port=80)
+    app.run(debug=True, host="0.0.0.0", port=5000)
