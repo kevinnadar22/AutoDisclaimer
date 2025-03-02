@@ -89,11 +89,13 @@ def process_image(
         smoking_detected = len(result["points"]) > 0
     elif model_endpoint == "query":
         prompt += " Strictly answer with 'Yes' or 'No'."
+
         result = model.query(
             img,
             prompt,
         )
-        smoking_detected = result["answer"].lower() == "yes"
+
+        smoking_detected = result["answer"].lower().strip() == "yes"
     elif model_endpoint == "detect":
         result = model.detect(
             img,
