@@ -10,6 +10,7 @@ import time
 from functools import lru_cache
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
+from typing import List, Tuple
 
 
 def load_model():
@@ -38,15 +39,22 @@ def encode_image_cached(image_path):
     return img
 
 
+def custom_collate(batch: List[Tuple[Image.Image, str]]):
+    """Custom collate function to handle PIL Images"""
+    images = [item[0] for item in batch]
+    paths = [item[1] for item in batch]
+    return images, paths
+
+
 class ImageDataset(Dataset):
-    def __init__(self, image_paths, input_dir):
+    def __init__(self, image_paths: List[str], input_dir: str):
         self.image_paths = image_paths
         self.input_dir = input_dir
 
     def __len__(self):
         return len(self.image_paths)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[Image.Image, str]:
         image_path = os.path.join(self.input_dir, self.image_paths[idx])
         return encode_image_cached(image_path), self.image_paths[idx]
 
@@ -55,14 +63,22 @@ def parallel_encode_images(model, image_paths, input_dir, batch_size=4):
     """Encode all images in parallel before processing"""
     print("Encoding images in parallel...")
     dataset = ImageDataset(image_paths, input_dir)
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=4, pin_memory=True)
+    dataloader = DataLoader(
+        dataset, 
+        batch_size=batch_size, 
+        num_workers=4, 
+        pin_memory=True,
+        collate_fn=custom_collate
+    )
     
     encoded_images = {}
     
     with torch.cuda.device(0):
         for batch_images, batch_paths in tqdm(dataloader, desc="Encoding images"):
             with torch.no_grad():
-                encoded = model.encode_image(batch_images)
+                # Process batch of images
+                encoded = [model.encode_image(img) for img in batch_images]
+                # Store encoded images
                 for enc, path in zip(encoded, batch_paths):
                     encoded_images[path] = enc
                 
