@@ -90,6 +90,11 @@ def process_video():
     except ValueError:
         return jsonify({"error": "Invalid frames per second value"}), 400
 
+    # Get model endpoint parameter
+    model_endpoint = request.form.get("model_endpoint", "point")
+    if model_endpoint not in ["point", "detect", "query"]:
+        return jsonify({"error": "Invalid model endpoint"}), 400
+
     # Handle disclaimer image if present
     disclaimer_image_path = None
     if "disclaimer_image" in request.files:
@@ -121,6 +126,7 @@ def process_video():
         "video_path": video_path,
         "disclaimer_path": disclaimer_image_path,
         "frames_per_second": frames_per_second,
+        "model_endpoint": model_endpoint,
         "output_path": os.path.join(task_dir, f"processed_{video_filename}"),
         "start_time": time.time(),
         "frames_processed": 0,
@@ -154,7 +160,6 @@ def process_video_task(task_id):
         os.makedirs(frames_dir, exist_ok=True)
 
         # Extract frames using split_video_and_create_collages function
-        # Note: split_video_and_create_collages(video_path, output_dir, fps=1, collage_grid=(4, 4), resize_frames=None)
         frame_info = split_video_and_create_collages(
             video_path=task["video_path"],
             output_dir=frames_dir,
@@ -185,15 +190,16 @@ def process_video_task(task_id):
         for i, frame_info in enumerate(frames_data):
             frame_path = os.path.join(frames_dir, frame_info["filename"])
 
-            # Note: process_image(model, image_path, confidence_threshold=0.5)
-            is_smoking = process_image(
+            # Process image with specified model endpoint
+            frames_data, _, smoking_detected = process_image(
                 model=model,
                 image_path=frame_path,
                 frames_data=frames_data,
                 detect_only=True,
+                model_endpoint=task["model_endpoint"],
             )
 
-            if is_smoking:
+            if smoking_detected:
                 task["smoking_frames"] += 1
                 smoking_frames.append(frame_info["timestamp"])
 

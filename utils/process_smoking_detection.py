@@ -9,10 +9,7 @@ from tqdm import tqdm
 import time
 from functools import lru_cache
 import multiprocessing as mp
-from queue import Queue
-from threading import Thread
-import numpy as np
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict
 
 
 def preprocess_image(image_path: str) -> Tuple[str, Image.Image]:
@@ -25,14 +22,16 @@ def preprocess_image(image_path: str) -> Tuple[str, Image.Image]:
         return image_path, None
 
 
-def parallel_preprocess_images(image_paths: List[str], num_workers: int = None) -> Dict[str, Image.Image]:
+def parallel_preprocess_images(
+    image_paths: List[str], num_workers: int = None
+) -> Dict[str, Image.Image]:
     """Preprocess multiple images in parallel using CPU cores"""
     if num_workers is None:
         num_workers = mp.cpu_count()
 
     with mp.Pool(num_workers) as pool:
         results = pool.map(preprocess_image, image_paths)
-    
+
     # Filter out failed preprocessings and create a dictionary
     return {path: img for path, img in results if img is not None}
 
@@ -63,29 +62,52 @@ def encode_image_cached(image_path):
     return img
 
 
-def process_image(model, image_path, frames_data, detect_only=False):
+def process_image(
+    model,
+    image_path,
+    frames_data,
+    detect_only=False,
+    model_endpoint="point",
+):
     """Process a single image and detect if it contains smoking"""
     start_time = time.time()
 
     # Load the image
     img = encode_image_cached(image_path)
-    load_time = time.time() - start_time
 
     # Run query for smoking detection
     query_start = time.time()
-    result = model.point(
-        img,
-        "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke?"
-    )
+
+    # Prompt for smoking detection
+    prompt = "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke?"
+
+    if model_endpoint == "point":
+        result = model.point(
+            img,
+            prompt,
+        )
+        smoking_detected = len(result["points"]) > 0
+    elif model_endpoint == "query":
+        prompt += " Strictly answer with 'Yes' or 'No'."
+        result = model.query(
+            img,
+            prompt,
+        )
+        smoking_detected = result["answer"].lower() == "yes"
+    elif model_endpoint == "detect":
+        result = model.detect(
+            img,
+            prompt,
+        )
+        smoking_detected = len(result["objects"]) > 0
+    else:
+        raise ValueError(f"Invalid model endpoint: {model_endpoint}")
+
     query_time = time.time() - query_start
 
-    # Check if smoking was detected
-    smoking_detected = len(result["points"]) > 0
-    
     # Optional debug timing info
     if os.environ.get("DEBUG_TIMING"):
         print(f"Image: {os.path.basename(image_path)}")
-        print(f"  Load time: {load_time:.3f}s")
         print(f"  Query time: {query_time:.3f}s")
         print(f"  Total time: {time.time() - start_time:.3f}s")
         print(f"  Result: {'Smoking' if smoking_detected else 'No smoking'}")
@@ -129,7 +151,14 @@ def process_image(model, image_path, frames_data, detect_only=False):
 
 
 def process_images_in_batches(
-    model, image_paths, input_dir, frames_data, detect_only=False, batch_size=4, num_workers=None
+    model,
+    image_paths,
+    input_dir,
+    frames_data,
+    detect_only=False,
+    model_endpoint="point",
+    batch_size=4,
+    num_workers=None,
 ):
     """Process images in batches with parallel preprocessing"""
     results = []
@@ -138,27 +167,30 @@ def process_images_in_batches(
     # First, preprocess all images in parallel using CPU
     print("Preprocessing images in parallel...")
     preprocessed_images = parallel_preprocess_images(
-        [os.path.join(input_dir, img) for img in image_paths],
-        num_workers=num_workers
+        [os.path.join(input_dir, img) for img in image_paths], num_workers=num_workers
     )
-    
+
     print(f"Successfully preprocessed {len(preprocessed_images)} images")
 
     # Process in batches using preprocessed images
     for i in range(0, len(image_paths), batch_size):
         batch = image_paths[i : i + batch_size]
-        
+
         # Process each image in the batch
         for image_name in batch:
             image_path = os.path.join(input_dir, image_name)
-            
+
             # Skip if preprocessing failed
             if image_path not in preprocessed_images:
                 print(f"Warning: Skipping {image_path} due to preprocessing failure")
                 continue
 
             frames_data, annotated_img, smoking_detected = process_image(
-                model, image_path, frames_data, detect_only=detect_only
+                model,
+                image_path,
+                frames_data,
+                detect_only=detect_only,
+                model_endpoint=model_endpoint,
             )
 
             if smoking_detected:
@@ -203,6 +235,12 @@ def main():
         action="store_true",
         help="Print detailed timing information",
     )
+    parser.add_argument(
+        "--model-endpoint",
+        type=str,
+        default="point",
+        help="Model endpoint to use for smoking detection, one of: point, query, detect",
+    )
     args = parser.parse_args()
 
     if args.debug_timing:
@@ -243,7 +281,8 @@ def main():
         frames_data,
         detect_only=args.detect_only,
         batch_size=args.batch_size,
-        num_workers=args.num_workers
+        num_workers=args.num_workers,
+        model_endpoint=args.model_endpoint,
     )
 
     # Save annotated images

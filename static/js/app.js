@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const framesPerSecond = document.getElementById('framesPerSecond');
     const framesValue = document.getElementById('framesValue');
+    const modelEndpoint = document.getElementById('modelEndpoint');
     
     const step1 = document.getElementById('step1');
     const step2 = document.getElementById('step2');
@@ -222,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('video', videoFile);
         formData.append('frames_per_second', framesPerSecond.value);
+        formData.append('model_endpoint', modelEndpoint.value);
         
         if (disclaimerFile) {
             formData.append('disclaimer_image', disclaimerFile);

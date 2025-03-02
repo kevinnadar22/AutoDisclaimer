@@ -62,6 +62,16 @@
                         processing time</p>
                 </div>
 
+                <div class="mb-6">
+                    <label for="modelEndpoint" class="block text-gray-700 mb-2">Detection Method</label>
+                    <select id="modelEndpoint" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="point">Point Detection (Default)</option>
+                        <option value="detect">Object Detection</option>
+                        <option value="query">Text Query</option>
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">Different methods may have varying accuracy and speed</p>
+                </div>
+
                 <div class="mt-6">
                     <label class="block text-gray-700 mb-2">Disclaimer Image (optional)</label>
                     <div id="disclaimerDropZone" class="drop-zone rounded-lg p-6 text-center cursor-pointer">
