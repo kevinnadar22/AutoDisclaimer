@@ -8,6 +8,8 @@ from huggingface_hub import login
 from tqdm import tqdm
 import time
 from functools import lru_cache
+from torch.utils.data import DataLoader, Dataset
+import torch.nn as nn
 
 
 def load_model():
@@ -36,6 +38,37 @@ def encode_image_cached(image_path):
     return img
 
 
+class ImageDataset(Dataset):
+    def __init__(self, image_paths, input_dir):
+        self.image_paths = image_paths
+        self.input_dir = input_dir
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = os.path.join(self.input_dir, self.image_paths[idx])
+        return encode_image_cached(image_path), self.image_paths[idx]
+
+
+def parallel_encode_images(model, image_paths, input_dir, batch_size=4):
+    """Encode all images in parallel before processing"""
+    print("Encoding images in parallel...")
+    dataset = ImageDataset(image_paths, input_dir)
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=4, pin_memory=True)
+    
+    encoded_images = {}
+    
+    with torch.cuda.device(0):
+        for batch_images, batch_paths in tqdm(dataloader, desc="Encoding images"):
+            with torch.no_grad():
+                encoded = model.encode_image(batch_images)
+                for enc, path in zip(encoded, batch_paths):
+                    encoded_images[path] = enc
+                
+    return encoded_images
+
+
 def process_image(model, image_path, frames_data, detect_only=False):
     """Process a single image and detect if it contains smoking"""
     start_time = time.time()
@@ -58,7 +91,7 @@ def process_image(model, image_path, frames_data, detect_only=False):
     # )
     result = model.point(
         img,
-        "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke?"
+        "Does the image show a person actively smoking or holding a cigarette, vape, cigar?"
     )
     query_time = time.time() - query_start
 
@@ -124,7 +157,10 @@ def process_images_in_batches(
     results = []
     smoking_count = 0
 
-    # Process in batches
+    # First, encode all images in parallel
+    encoded_images = parallel_encode_images(model, image_paths, input_dir, batch_size)
+
+    # Process encoded images in batches
     for i in range(0, len(image_paths), batch_size):
         batch = image_paths[i : i + batch_size]
 
@@ -132,18 +168,70 @@ def process_images_in_batches(
         for image_name in batch:
             image_path = os.path.join(input_dir, image_name)
             if os.path.exists(image_path):
-                frames_data, annotated_img, smoking_detected = process_image(
-                    model, image_path, frames_data, detect_only=detect_only
+                # Use pre-encoded image
+                img = encode_image_cached(image_path)
+                
+                # Run point detection using pre-encoded image
+                result = model.point(
+                    img,
+                    "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke?"
                 )
+                
+                smoking_detected = len(result["points"]) > 0
+
+                # Create annotated image if needed
+                annotated_img = None
+                if not detect_only and smoking_detected:
+                    annotated_img = create_annotated_image(img, image_path, frames_data)
 
                 if smoking_detected:
                     smoking_count += 1
+
+                # Update frames data
+                for frame in frames_data:
+                    if frame["path"] == image_name:
+                        frame["smoking"] = smoking_detected
+                        break
 
                 results.append((image_name, annotated_img, smoking_detected))
             else:
                 print(f"Warning: Image file not found: {image_path}")
 
     return results, smoking_count
+
+
+def create_annotated_image(img, image_path, frames_data):
+    """Create annotated image with smoking detection markers"""
+    img_width, img_height = img.size
+    annotated_img = img.copy()
+    draw = ImageDraw.Draw(annotated_img)
+
+    # Try to load a font, use default if not available
+    try:
+        font = ImageFont.truetype("Arial", 20)
+    except IOError:
+        font = ImageFont.load_default()
+
+    # Find the frame in frames_data
+    for frame in frames_data:
+        if os.path.basename(image_path) == frame["path"]:
+            # Draw red rectangle around the entire image
+            draw.rectangle(
+                [(0, 0), (img_width, img_height)], outline="red", width=3
+            )
+
+            # Add text label
+            draw.text((10, 10), "SMOKING DETECTED", fill="red", font=font)
+
+            # Add timestamp information if available
+            if "from_sec" in frame and "to_sec" in frame:
+                timestamp_text = f"Time: {frame['from_sec']}s - {frame['to_sec']}s"
+                draw.text(
+                    (10, img_height - 30), timestamp_text, fill="red", font=font
+                )
+            break
+
+    return annotated_img
 
 
 def main():
