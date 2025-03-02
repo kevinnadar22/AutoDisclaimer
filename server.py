@@ -13,6 +13,9 @@ from utils import (
     process_image,
     process_video_with_disclaimer,
 )
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Get absolute paths for static and templates folders
 current_dir = os.path.dirname(os.path.abspath(__file__))

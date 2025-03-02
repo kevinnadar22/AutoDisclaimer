@@ -12,6 +12,7 @@ accelerate
 einops
 opencv-python-headless
 argparse
+pyvips
 
 # Web interface dependencies
 flask
