@@ -142,7 +142,7 @@ def create_interface():
                 video_input = gr.Video(
                     label="Upload Video",
                     sources="upload",
-                    type="filepath",
+                    # type="filepath",
                     interactive=True
                 )
                 
