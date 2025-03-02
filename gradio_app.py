@@ -141,7 +141,7 @@ def create_interface():
                 # Input components
                 video_input = gr.Video(
                     label="Upload Video",
-                    source="upload",
+                    sources="upload",
                     type="filepath",
                     interactive=True
                 )
