@@ -13,6 +13,7 @@ einops
 opencv-python-headless
 argparse
 pyvips
+python-dotenv
 
 # Web interface dependencies
 flask
