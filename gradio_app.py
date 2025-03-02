@@ -119,15 +119,11 @@ def process_video_file(
         disclaimer_start = time.time()
         output_path = os.path.join(temp_dir, "output_video.mp4")
         process_video_with_disclaimer(
-            input_video=video_path,
-            output_video=output_path,
-            smoking_timestamps=smoking_frames,
-            disclaimer_image=disclaimer_path,
-            disclaimer_text=(
-                "Warning: This video contains scenes of smoking"
-                if not disclaimer_path
-                else None
-            ),
+            video_path=video_path,
+            frames_info_path=frames_info_path,
+            output_path=output_path,
+            disclaimer_image_path=disclaimer_path,
+            progress_callback=lambda x: progress(0.7 + x * 0.3, desc="Adding disclaimers...")
         )
         disclaimer_time = time.time() - disclaimer_start
 
