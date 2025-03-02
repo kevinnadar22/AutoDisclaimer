@@ -115,7 +115,7 @@ def process_video_file(
         detection_time = time.time() - detection_start
 
         # Save updated frames_info.json with smoking detection results
-        with open(frames_info_path, 'w') as f:
+        with open(frames_info_path, "w") as f:
             json.dump(frames_data, f, indent=2)
 
         # Add disclaimers to video
@@ -127,7 +127,9 @@ def process_video_file(
             frames_info_path=frames_info_path,
             output_path=output_path,
             disclaimer_image_path=disclaimer_path,
-            progress_callback=lambda x: progress(0.7 + x * 0.3, desc="Adding disclaimers...")
+            progress_callback=lambda x: progress(
+                0.7 + x * 0.3, desc="Adding disclaimers..."
+            ),
         )
         disclaimer_time = time.time() - disclaimer_start
 
