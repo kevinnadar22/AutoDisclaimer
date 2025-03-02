@@ -11,11 +11,13 @@ from functools import lru_cache
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 from typing import List, Tuple
+import gc
 
 
 def load_model():
     """Load and initialize the model for smoking detection"""
     print("Loading model...")
+    torch.cuda.empty_cache()
     model = AutoModelForCausalLM.from_pretrained(
         "vikhyatk/moondream2",
         revision="2025-01-09",
@@ -27,7 +29,7 @@ def load_model():
 
 
 # Cache image encoding to avoid re-encoding the same image
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=8)  # Reduced cache size
 def encode_image_cached(image_path):
     """Cache image encoding to avoid redundant work"""
     # Convert path to string for caching
@@ -59,28 +61,52 @@ class ImageDataset(Dataset):
         return encode_image_cached(image_path), self.image_paths[idx]
 
 
-def parallel_encode_images(model, image_paths, input_dir, batch_size=4):
+def parallel_encode_images(model, image_paths, input_dir, batch_size=2):
     """Encode all images in parallel before processing"""
     print("Encoding images in parallel...")
     dataset = ImageDataset(image_paths, input_dir)
     dataloader = DataLoader(
         dataset, 
         batch_size=batch_size, 
-        num_workers=4, 
+        num_workers=2,  # Reduced number of workers
         pin_memory=True,
-        collate_fn=custom_collate
+        collate_fn=custom_collate,
+        persistent_workers=True
     )
     
     encoded_images = {}
     
     with torch.cuda.device(0):
         for batch_images, batch_paths in tqdm(dataloader, desc="Encoding images"):
-            with torch.no_grad():
-                # Process batch of images
-                encoded = [model.encode_image(img) for img in batch_images]
-                # Store encoded images
-                for enc, path in zip(encoded, batch_paths):
-                    encoded_images[path] = enc
+            try:
+                with torch.no_grad(), torch.cuda.amp.autocast():
+                    # Process batch of images
+                    encoded = [model.encode_image(img) for img in batch_images]
+                    # Store encoded images
+                    for enc, path in zip(encoded, batch_paths):
+                        encoded_images[path] = enc.cpu()  # Move to CPU to save GPU memory
+                    
+                    # Clear GPU cache after each batch
+                    torch.cuda.empty_cache()
+                    gc.collect()
+                    
+            except RuntimeError as e:
+                if "out of memory" in str(e):
+                    # Clear cache and try again with smaller batch
+                    torch.cuda.empty_cache()
+                    gc.collect()
+                    print("OOM error, processing one by one...")
+                    for img, path in zip(batch_images, batch_paths):
+                        try:
+                            with torch.no_grad(), torch.cuda.amp.autocast():
+                                enc = model.encode_image(img)
+                                encoded_images[path] = enc.cpu()
+                                torch.cuda.empty_cache()
+                        except:
+                            print(f"Failed to process image: {path}")
+                            continue
+                else:
+                    raise e
                 
     return encoded_images
 
@@ -167,7 +193,7 @@ def process_image(model, image_path, frames_data, detect_only=False):
 
 
 def process_images_in_batches(
-    model, image_paths, input_dir, frames_data, detect_only=False, batch_size=4
+    model, image_paths, input_dir, frames_data, detect_only=False, batch_size=2
 ):
     """Process images in batches for better GPU utilization"""
     results = []
@@ -176,42 +202,57 @@ def process_images_in_batches(
     # First, encode all images in parallel
     encoded_images = parallel_encode_images(model, image_paths, input_dir, batch_size)
 
-    # Process encoded images in batches
+    # Process encoded images in smaller batches
     for i in range(0, len(image_paths), batch_size):
         batch = image_paths[i : i + batch_size]
+        torch.cuda.empty_cache()  # Clear GPU cache before each batch
 
         # Process each image in the batch
         for image_name in batch:
             image_path = os.path.join(input_dir, image_name)
             if os.path.exists(image_path):
-                # Use pre-encoded image
-                img = encode_image_cached(image_path)
-                
-                # Run point detection using pre-encoded image
-                result = model.point(
-                    img,
-                    "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke?"
-                )
-                
-                smoking_detected = len(result["points"]) > 0
+                try:
+                    with torch.cuda.amp.autocast():
+                        # Use pre-encoded image
+                        img = encode_image_cached(image_path)
+                        
+                        # Run point detection using pre-encoded image
+                        result = model.point(
+                            img,
+                            "Does the image contain any form of smoking, including cigarettes, vapes, tobacco products, or visible smoke?"
+                        )
+                        
+                        smoking_detected = len(result["points"]) > 0
 
-                # Create annotated image if needed
-                annotated_img = None
-                if not detect_only and smoking_detected:
-                    annotated_img = create_annotated_image(img, image_path, frames_data)
+                        # Create annotated image if needed
+                        annotated_img = None
+                        if not detect_only and smoking_detected:
+                            annotated_img = create_annotated_image(img, image_path, frames_data)
 
-                if smoking_detected:
-                    smoking_count += 1
+                        if smoking_detected:
+                            smoking_count += 1
 
-                # Update frames data
-                for frame in frames_data:
-                    if frame["path"] == image_name:
-                        frame["smoking"] = smoking_detected
-                        break
+                        # Update frames data
+                        for frame in frames_data:
+                            if frame["path"] == image_name:
+                                frame["smoking"] = smoking_detected
+                                break
 
-                results.append((image_name, annotated_img, smoking_detected))
+                        results.append((image_name, annotated_img, smoking_detected))
+                except RuntimeError as e:
+                    if "out of memory" in str(e):
+                        print(f"OOM error processing {image_name}, skipping...")
+                        torch.cuda.empty_cache()
+                        gc.collect()
+                        continue
+                    else:
+                        raise e
             else:
                 print(f"Warning: Image file not found: {image_path}")
+
+        # Clear some memory after each batch
+        gc.collect()
+        torch.cuda.empty_cache()
 
     return results, smoking_count
 
@@ -271,7 +312,7 @@ def main():
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=4,
+        default=2,
         help="Number of images to process in each batch for better GPU utilization",
     )
     parser.add_argument(
