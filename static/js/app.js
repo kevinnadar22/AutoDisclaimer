@@ -48,10 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTaskId = null;
     let statusCheckInterval = null;
     
-    // API endpoints
-    const API_PROCESS = '/api/process';
-    const API_STATUS = '/api/status/';
-    const API_DOWNLOAD = '/api/download/';
+    // Get URL prefix from meta tag or use empty string
+    const urlPrefixMeta = document.querySelector('meta[name="url-prefix"]');
+    const URL_PREFIX = urlPrefixMeta ? urlPrefixMeta.getAttribute('content') : '';
+    
+    // API endpoints with URL prefix
+    const API_PROCESS = `${URL_PREFIX}/api/process`;
+    const API_STATUS = `${URL_PREFIX}/api/status/`;
+    const API_DOWNLOAD = `${URL_PREFIX}/api/download/`;
     
     // Initialize UI state
     updateUIState();
@@ -234,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Failed to start processing');
+                throw new Error(`Failed to start processing: ${response.status} ${response.statusText}`);
             }
             return response.json();
         })

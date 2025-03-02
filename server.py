@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file, render_template, url_for
 from flask_cors import CORS
 import os
 import uuid
@@ -7,6 +7,7 @@ import time
 import threading
 from werkzeug.utils import secure_filename
 import shutil
+from werkzeug.middleware.proxy_fix import ProxyFix
 from utils import (
     split_video_and_create_collages,
     load_model,
@@ -22,16 +23,55 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 static_folder = os.path.join(current_dir, "static")
 templates_folder = os.path.join(current_dir, "templates")
 
+# URL prefix configuration (e.g., "/proxy/5000")
+URL_PREFIX = os.environ.get("URL_PREFIX", "")
+
 # Create Flask app with explicit static and template folders
 app = Flask(__name__, static_folder=static_folder, template_folder=templates_folder)
-CORS(app)  # Enable CORS for all routes
 
-# Set maximum content length to 200MB (adjust as needed)
-app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB in bytes
+# Apply URL prefix if set
+if URL_PREFIX:
+    class PrefixMiddleware:
+        def __init__(self, app, prefix):
+            self.app = app
+            self.prefix = prefix
 
-# Print debug information about static folder
+        def __call__(self, environ, start_response):
+            if environ['PATH_INFO'].startswith(self.prefix):
+                environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
+                environ['SCRIPT_NAME'] = self.prefix
+                return self.app(environ, start_response)
+            else:
+                start_response('404', [('Content-Type', 'text/plain')])
+                return [b'Not Found']
+
+    app.wsgi_app = PrefixMiddleware(app.wsgi_app, URL_PREFIX)
+
+# Fix for running behind a proxy
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Enable CORS for all routes with support for credentials
+CORS(app, supports_credentials=True)
+
+# Set maximum content length to 1000MB (1GB) to handle large video files
+app.config["MAX_CONTENT_LENGTH"] = 1000 * 1024 * 1024  # 1GB in bytes
+
+# Override url_for to include the URL prefix for static files
+@app.context_processor
+def override_url_for():
+    def _url_for(endpoint, **kwargs):
+        if endpoint == 'static':
+            # If URL_PREFIX is set and not already in the url
+            if URL_PREFIX and not request.path.startswith(URL_PREFIX):
+                kwargs['_external'] = False
+                return URL_PREFIX + url_for(endpoint, **kwargs)
+        return url_for(endpoint, **kwargs)
+    return dict(url_for=_url_for)
+
+# Print debug information about static folder and configuration
 print(f"Static folder path: {app.static_folder}")
 print(f"Static folder exists: {os.path.exists(app.static_folder)}")
+print(f"URL_PREFIX: {URL_PREFIX}")
 if os.path.exists(app.static_folder):
     print(f"Static folder contents: {os.listdir(app.static_folder)}")
 
@@ -65,7 +105,7 @@ def allowed_image_file(filename):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", url_prefix=URL_PREFIX)
 
 
 @app.route("/api/process", methods=["POST"])
