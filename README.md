@@ -27,17 +27,17 @@
 ## 📝 Overview
 ![Smoking Scene Example](https://preview.redd.it/this-gotta-be-the-best-opening-ive-ever-seen-v0-6l9ogvcantdd1.jpeg?auto=webp&s=3c2de9a739534ef3c63f44bdbc1bfa6366225dfa)
 
-Auto Disclaimer is an automated tool that adds smoking disclaimers to videos by detecting smoking scenes. The tool uses computer vision and machine learning to identify frames containing smoking activities and overlays appropriate disclaimers, eliminating the need for manual frame-by-frame editing.
+Auto Disclaimer is an automated tool that adds smoking disclaimers to movies by detecting smoking scenes. The tool uses computer vision and machine learning to identify frames containing smoking activities and overlays appropriate disclaimers, eliminating the need for manual frame-by-frame editing.
 
 ## ❓ Problem Statement
-Video editors currently spend significant time manually adding disclaimers to movies on a frame-by-frame basis whenever smoking scenes appear. This process is:
+Movie editors currently spend significant time manually adding disclaimers to movies on a frame-by-frame basis whenever smoking scenes appear. This process is:
 - ⏱️ Time-consuming
 - ❌ Prone to human error
 - 💰 Costly for production companies
 
 ## 💡 Solution
 Our solution automates the disclaimer addition process by:
-1. Processing video files frame by frame
+1. Processing movie files frame by frame
 2. Using the Moondream2 vision language model to detect smoking activities
 3. Automatically overlaying appropriate disclaimers on relevant frames
 4. Generating a new video with disclaimers integrated
@@ -63,7 +63,7 @@ Check out a sample processed video: [Example Output](output/1.mp4)
 |------------|---------|
 | **Python** | Core programming language |
 | **[Moondream2](https://huggingface.co/vikhyatk/moondream2)** | Vision language model for smoking detection |
-| **OpenCV** | Video processing and frame manipulation |
+| **OpenCV** | Movie processing and frame manipulation |
 | **Gradio** | User-friendly web interface |
 | **Docker** | Containerization for easy deployment |
 
@@ -133,7 +133,7 @@ Check out a sample processed video: [Example Output](output/1.mp4)
 |-----|-------------|
 | **Lower FPS** | Use 1-5 FPS for faster processing |
 | **GPU Acceleration** | Significantly improves processing speed |
-| **Video Splitting** | Split long videos into smaller segments |
+| **Movie Splitting** | Split long movies into smaller segments |
 | **Detection Method** | "Point" method is generally faster than others |
 
 ## 📞 Contact
