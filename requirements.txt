@@ -1,6 +1,6 @@
 gradio==5.20.0
 huggingface_hub==0.29.1
-numpy==2.2.3
+numpy
 opencv_python==4.10.0.84
 Pillow==11.1.0
 tensorflow==2.18.0
