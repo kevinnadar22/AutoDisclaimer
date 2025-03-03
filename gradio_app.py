@@ -171,7 +171,7 @@ def process_video_file(
 # Create the Gradio interface
 def create_interface():
     with gr.Blocks(
-        title="Smoking Detection & Disclaimer Adder", theme=gr.themes.Soft()
+        title="Smoking Detection & Disclaimer Adder", theme=gr.themes.Origin()
     ) as app:
         gr.Markdown(
             """
