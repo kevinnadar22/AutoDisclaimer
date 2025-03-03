@@ -1,7 +1,7 @@
 # Auto Disclaimer 🚭 🍺
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-Available-blue)](https://www.docker.com/)
 [![Gradio](https://img.shields.io/badge/Gradio-UI-orange)](https://gradio.app/)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Moondream2-yellow)](https://huggingface.co/vikhyatk/moondream2)
@@ -85,8 +85,8 @@ Check out a sample processed video: [Example Output](output/1.mp4)
 ### Option 1: Docker Deployment (Recommended) 🐳
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/auto-disclaimer-adder.git
-   cd auto-disclaimer-adder
+   git clone https://github.com/kevinnadar22/AutoDisclaimer.git
+   cd AutoDisclaimer
    ```
 
 2. Build and run with Docker Compose:
@@ -99,8 +99,8 @@ Check out a sample processed video: [Example Output](output/1.mp4)
 ### Option 2: Manual Installation 💻
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/auto-disclaimer-adder.git
-   cd auto-disclaimer-adder
+   git clone https://github.com/kevinnadar22/AutoDisclaimer.git
+   cd AutoDisclaimer
    ```
 
 2. Install system dependencies:
