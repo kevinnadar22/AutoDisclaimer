@@ -221,6 +221,20 @@ def create_interface():
                 output_video = gr.Video(label="Processed Video", interactive=False)
                 output_summary = gr.Markdown(label="Processing Summary")
 
+        # Add examples
+        gr.Examples(
+            examples=[
+                ["test/1.mp4", 1, "point", None],
+                ["test/2.mp4", 2, "detect", None],
+                ["test/3.mp4", 1, "query", None],
+            ],
+            inputs=[video_input, fps_slider, model_endpoint, disclaimer_image],
+            outputs=[output_video, output_summary],
+            fn=process_video_file,
+            cache_examples=True,
+            label="Example Videos",
+        )
+
         # Handle processing
         process_btn.click(
             fn=process_video_file,
