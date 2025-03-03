@@ -166,10 +166,6 @@ def process_video_file(
 
     except Exception as e:
         raise gr.Error(f"Error processing video: {str(e)}")
-    finally:
-        # Clean up temporary directory
-        if "temp_dir" in locals():
-            shutil.rmtree(temp_dir)
 
 
 # Create the Gradio interface
