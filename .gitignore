@@ -1,7 +1,6 @@
 /.DS_Store
 moondream-0_5b-int8.mf
 images/
-*.png
 moondream-2b-int8.mf
 test.py
 outbound.json
