@@ -227,7 +227,7 @@ def create_interface():
             inputs=[video_input, fps_slider, model_endpoint, disclaimer_image],
             outputs=[output_video, output_summary],
             fn=process_video_file,
-            cache_examples=True,
+            # cache_examples=True,
             label="Example Videos",
         )
 
