@@ -38,8 +38,5 @@ RUN mkdir -p /app/uploads /app/downloads /app/static /app/templates
 # Copy the application code
 COPY . .
 
-# Expose the port Flask runs on
-EXPOSE 5000
-
 # Command to run the Flask app
-CMD ["python3", "server.py"] 
+CMD ["python3", "gradio_app.py"] 

@@ -144,10 +144,10 @@ todo.txt
 .DS_Store
 output.mkv
 config.env
+.env
 text.txt
 uploads/
 downloads/
 annotated_images/
 video_with_disclaimer.mp4
-output/
 .gradio/certificate.pem
